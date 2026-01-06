@@ -49,37 +49,34 @@ export async function GET(request: NextRequest) {
       .select('customer_code, customer_name')
       .in('customer_code', customerCodes)
 
-    // Fetch sales details for accounts with ref_type='sale'
-    const saleIds = (accounts as any[])
-      ?.filter(a => a.ref_type === 'sale')
-      ?.map(a => a.ref_id)
-      .filter(Boolean) || []
+    // Fetch sale item details for accounts with sale_item_id
+    const itemIds = (accounts as any[])?.filter(a => a.sale_item_id).map(a => a.sale_item_id) || []
+    let itemsMap = new Map()
 
+    if (itemIds.length > 0) {
+      const { data: items } = await supabaseServer
+        .from('sale_items')
+        .select('id, quantity, price, subtotal, product_id, sale_id, snapshot_name, products:product_id(item_code, unit)')
+        .in('id', itemIds)
+
+      itemsMap = new Map(
+        (items as any[])?.map(item => [item.id, item]) || []
+      )
+    }
+
+    // Fetch sales details to get sale_no
+    const saleIds = [...new Set((accounts as any[])?.filter(a => a.ref_type === 'sale').map(a => a.ref_id) || [])]
     let salesMap = new Map()
+
     if (saleIds.length > 0) {
-      const { data: sales } = await (supabaseServer
-        .from('sales') as any)
-        .select(`
-          id,
-          sale_no,
-          sale_date,
-          payment_method,
-          sale_items (
-            id,
-            product_id,
-            quantity,
-            price,
-            subtotal,
-            snapshot_name,
-            products (
-              item_code,
-              unit
-            )
-          )
-        `)
+      const { data: sales } = await supabaseServer
+        .from('sales')
+        .select('id, sale_no, sale_date, payment_method')
         .in('id', saleIds)
 
-      salesMap = new Map((sales as any[])?.map(s => [s.id, s]) || [])
+      salesMap = new Map(
+        (sales as any[])?.map(s => [s.id, s]) || []
+      )
     }
 
     // Map customer names and sales to accounts
@@ -90,6 +87,7 @@ export async function GET(request: NextRequest) {
     const accountsWithDetails = (accounts as any[])?.map(account => ({
       ...account,
       customers: customersMap.get(account.partner_code) || null,
+      sale_item: account.sale_item_id ? itemsMap.get(account.sale_item_id) : null,
       sales: account.ref_type === 'sale' ? salesMap.get(account.ref_id) : null
     }))
 

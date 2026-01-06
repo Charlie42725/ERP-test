@@ -310,12 +310,12 @@ export default function DashboardPage() {
                     </tr>
                   ))}
                 </tbody>
-                <tfoot className="border-t bg-gray-50">
+                <tfoot className="border-t bg-gray-50 dark:bg-gray-900">
                   <tr>
                     <td colSpan={3} className="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
                       總計:
                     </td>
-                    <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">
+                    <td className="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-gray-100">
                       {formatCurrency(stats.totalCost)}
                     </td>
                   </tr>
@@ -358,7 +358,7 @@ export default function DashboardPage() {
                     <div className="font-semibold text-gray-900 dark:text-gray-100">
                       {formatCurrency(sale.total)}
                     </div>
-                    <div className="text-xs text-gray-900">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
                       {new Date(sale.created_at).toLocaleString('zh-TW', {
                         month: '2-digit',
                         day: '2-digit',
@@ -373,43 +373,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Quick Actions */}
-        <div className="mt-6 rounded-lg bg-white dark:bg-gray-800 p-6 shadow">
-          <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">快速操作</h2>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <Link
-              href="/pos"
-              className="flex flex-col items-center rounded-lg border-2 border-blue-200 bg-blue-50 p-4 text-center transition-colors hover:bg-blue-100"
-            >
-              <div className="mb-2 text-3xl">🛒</div>
-              <div className="font-semibold text-gray-900 dark:text-gray-100">POS 收銀</div>
-            </Link>
 
-            <Link
-              href="/products/new"
-              className="flex flex-col items-center rounded-lg border-2 border-green-200 bg-green-50 p-4 text-center transition-colors hover:bg-green-100"
-            >
-              <div className="mb-2 text-3xl">📦</div>
-              <div className="font-semibold text-gray-900 dark:text-gray-100">新增商品</div>
-            </Link>
-
-            <Link
-              href="/purchases/new"
-              className="flex flex-col items-center rounded-lg border-2 border-purple-200 bg-purple-50 p-4 text-center transition-colors hover:bg-purple-100"
-            >
-              <div className="mb-2 text-3xl">📥</div>
-              <div className="font-semibold text-gray-900 dark:text-gray-100">新增進貨</div>
-            </Link>
-
-            <Link
-              href="/ar"
-              className="flex flex-col items-center rounded-lg border-2 border-orange-200 bg-orange-50 p-4 text-center transition-colors hover:bg-orange-100"
-            >
-              <div className="mb-2 text-3xl">💰</div>
-              <div className="font-semibold text-gray-900 dark:text-gray-100">收款</div>
-            </Link>
-          </div>
-        </div>
       </div>
     </div>
   )

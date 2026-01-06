@@ -208,11 +208,9 @@ export async function POST(request: NextRequest) {
         direction: 'AP',
         ref_type: 'purchase',
         ref_id: purchase.id,
-        ref_no: purchaseNo,
         purchase_item_id: item.id,
         amount: item.subtotal,
         received_paid: 0,
-        balance: item.subtotal,
         due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
         status: 'unpaid',
       }))

@@ -3,41 +3,37 @@
 import React, { useState, useEffect } from 'react'
 import { formatCurrency, formatDate, formatPaymentMethod } from '@/lib/utils'
 
-type SaleItem = {
-  id: string
-  product_id: string
-  quantity: number
-  price: number
-  subtotal: number
-  snapshot_name: string
-  products?: {
-    item_code: string
-    unit: string
-  }
-  // For tracking allocation
-  received_amount: number
-  balance: number
-}
-
 type ARAccount = {
   id: string
   partner_code: string
   ref_type: string
   ref_id: string
   ref_no: string
+  sale_item_id: string | null
   amount: number
   received_paid: number
   balance: number
   due_date: string
   status: string
   created_at: string
+  sale_item?: {
+    id: string
+    quantity: number
+    price: number
+    subtotal: number
+    snapshot_name: string
+    product_id: string
+    products: {
+      item_code: string
+      unit: string
+    }
+  }
   sales?: {
     id: string
     sale_no: string
     sale_date: string
     payment_method: string
-    sale_items: SaleItem[]
-  }
+  } | null
 }
 
 type CustomerGroup = {
@@ -52,9 +48,7 @@ export default function ARPageV2() {
   const [customerGroups, setCustomerGroups] = useState<CustomerGroup[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(new Set())
-  const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set())
-  // Selected items: Map<`${accountId}_${itemId}`, { accountId, itemId, amount }>
-  const [selectedItems, setSelectedItems] = useState<Map<string, { accountId: string, itemId: string, amount: number }>>(new Map())
+  const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(new Set())
   const [showReceiptModal, setShowReceiptModal] = useState(false)
   const [receiptAmount, setReceiptAmount] = useState('')
   const [receiptMethod, setReceiptMethod] = useState('cash')
@@ -90,27 +84,10 @@ export default function ARPageV2() {
             }
           }
 
-          // Process sale items with allocation
-          const processedAccount = {
+          groups[key].accounts.push({
             ...account,
             ref_no: account.sales?.sale_no || account.ref_id
-          }
-
-          // Calculate allocation for each sale item
-          if (account.sales?.sale_items && account.sales.sale_items.length > 0) {
-            const items = account.sales.sale_items
-            const totalAmount = account.amount
-            const receivedPaid = account.received_paid
-            const receiptRatio = totalAmount > 0 ? receivedPaid / totalAmount : 0
-
-            processedAccount.sales.sale_items = items.map((item: any) => ({
-              ...item,
-              received_amount: Math.floor(item.subtotal * receiptRatio),
-              balance: item.subtotal - Math.floor(item.subtotal * receiptRatio)
-            }))
-          }
-
-          groups[key].accounts.push(processedAccount)
+          })
 
           if (account.status !== 'paid') {
             groups[key].total_balance += account.balance
@@ -147,53 +124,32 @@ export default function ARPageV2() {
   }
 
   const toggleAccount = (accountId: string) => {
-    const newExpanded = new Set(expandedAccounts)
-    if (newExpanded.has(accountId)) {
-      newExpanded.delete(accountId)
+    const newSelected = new Set(selectedAccounts)
+    if (newSelected.has(accountId)) {
+      newSelected.delete(accountId)
     } else {
-      newExpanded.add(accountId)
+      newSelected.add(accountId)
     }
-    setExpandedAccounts(newExpanded)
-  }
-
-  const toggleItem = (accountId: string, itemId: string, amount: number) => {
-    const key = `${accountId}_${itemId}`
-    const newSelected = new Map(selectedItems)
-
-    if (newSelected.has(key)) {
-      newSelected.delete(key)
-    } else {
-      newSelected.set(key, { accountId, itemId, amount })
-    }
-    setSelectedItems(newSelected)
+    setSelectedAccounts(newSelected)
   }
 
   const selectAllForCustomer = (partnerCode: string, checked: boolean) => {
     const group = customerGroups.find(g => g.partner_code === partnerCode)
     if (!group) return
 
-    const newSelected = new Map(selectedItems)
+    const newSelected = new Set(selectedAccounts)
 
     group.accounts
       .filter(a => a.status !== 'paid')
       .forEach(account => {
-        if (account.sales?.sale_items) {
-          account.sales.sale_items.forEach(item => {
-            const key = `${account.id}_${item.id}`
-            if (checked && item.balance > 0) {
-              newSelected.set(key, {
-                accountId: account.id,
-                itemId: item.id,
-                amount: item.balance
-              })
-            } else {
-              newSelected.delete(key)
-            }
-          })
+        if (checked) {
+          newSelected.add(account.id)
+        } else {
+          newSelected.delete(account.id)
         }
       })
 
-    setSelectedItems(newSelected)
+    setSelectedAccounts(newSelected)
   }
 
   const openReceiptModal = (partnerCode: string) => {
@@ -204,15 +160,19 @@ export default function ARPageV2() {
 
   const getSelectedTotal = () => {
     let total = 0
-    selectedItems.forEach(item => {
-      total += item.amount
+    customerGroups.forEach(group => {
+      group.accounts.forEach(account => {
+        if (selectedAccounts.has(account.id)) {
+          total += account.balance
+        }
+      })
     })
     return total
   }
 
   const handleReceipt = async () => {
-    if (selectedItems.size === 0) {
-      setError('請選擇至少一筆商品')
+    if (selectedAccounts.size === 0) {
+      setError('請選擇至少一筆帳款')
       return
     }
 
@@ -225,7 +185,7 @@ export default function ARPageV2() {
     }
 
     if (amount > selectedTotal) {
-      setError('收款金額不能超過所選商品總額')
+      setError('收款金額不能超過所選帳款總額')
       return
     }
 
@@ -233,21 +193,17 @@ export default function ARPageV2() {
     setError('')
 
     try {
-      // Group selected items by account and calculate allocation per account
-      const accountAllocations = new Map<string, number>()
-
-      selectedItems.forEach(item => {
-        const currentAmount = accountAllocations.get(item.accountId) || 0
-        accountAllocations.set(item.accountId, currentAmount + item.amount)
-      })
-
-      // Calculate proportional allocation based on input amount
+      // 按比例分配金額
       let remaining = amount
-      const allocations = Array.from(accountAllocations.entries()).map(([accountId, itemTotal], index, arr) => {
+      const allocations = Array.from(selectedAccounts).map((accountId, index, arr) => {
+        const account = customerGroups
+          .flatMap(g => g.accounts)
+          .find(a => a.id === accountId)!
+
         const isLast = index === arr.length - 1
         const allocatedAmount = isLast
           ? remaining
-          : Math.floor((itemTotal / selectedTotal) * amount)
+          : Math.min(account.balance, remaining)
 
         remaining -= allocatedAmount
 
@@ -273,7 +229,7 @@ export default function ARPageV2() {
       if (data.ok) {
         alert('收款成功！')
         setShowReceiptModal(false)
-        setSelectedItems(new Map())
+        setSelectedAccounts(new Set())
         setReceiptAmount('')
         setCurrentCustomer(null)
         fetchAccounts()
@@ -345,7 +301,7 @@ export default function ARPageV2() {
             <div className="text-2xl font-bold text-blue-600">
               {formatCurrency(getSelectedTotal())}
             </div>
-            <div className="text-sm text-gray-900 dark:text-gray-100">{selectedItems.size} 個商品</div>
+            <div className="text-sm text-gray-900 dark:text-gray-100">{selectedAccounts.size} 筆</div>
           </div>
 
           <div className="rounded-lg bg-white dark:bg-gray-800 p-4 shadow">
@@ -386,28 +342,9 @@ export default function ARPageV2() {
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {customerGroups.map((group) => {
                 const isExpanded = expandedCustomers.has(group.partner_code)
-
-                // Count unpaid items
-                let unpaidItemCount = 0
-                group.accounts.forEach(a => {
-                  if (a.status !== 'paid' && a.sales?.sale_items) {
-                    unpaidItemCount += a.sales.sale_items.filter(item => item.balance > 0).length
-                  }
-                })
-
-                // Check if all items are selected
-                const allItemKeys: string[] = []
-                group.accounts.forEach(a => {
-                  if (a.status !== 'paid' && a.sales?.sale_items) {
-                    a.sales.sale_items.forEach(item => {
-                      if (item.balance > 0) {
-                        allItemKeys.push(`${a.id}_${item.id}`)
-                      }
-                    })
-                  }
-                })
-                const allSelected = allItemKeys.length > 0 &&
-                  allItemKeys.every(key => selectedItems.has(key))
+                const unpaidAccounts = group.accounts.filter(a => a.status !== 'paid')
+                const allSelected = unpaidAccounts.length > 0 &&
+                  unpaidAccounts.every(a => selectedAccounts.has(a.id))
 
                 return (
                   <div key={group.partner_code}>
@@ -417,7 +354,7 @@ export default function ARPageV2() {
                         type="checkbox"
                         checked={allSelected}
                         onChange={(e) => selectAllForCustomer(group.partner_code, e.target.checked)}
-                        disabled={unpaidItemCount === 0}
+                        disabled={unpaidAccounts.length === 0}
                         className="h-4 w-4"
                         onClick={(e) => e.stopPropagation()}
                       />
@@ -446,7 +383,7 @@ export default function ARPageV2() {
                                 {formatCurrency(group.total_balance)}
                               </div>
                               <div className="text-xs text-gray-500 dark:text-gray-400">
-                                {group.unpaid_count} 筆單據 · {unpaidItemCount} 個商品
+                                {group.unpaid_count} 筆單據
                               </div>
                             </div>
                           </div>
@@ -456,54 +393,97 @@ export default function ARPageV2() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          selectAllForCustomer(group.partner_code, true)
-                          openReceiptModal(group.partner_code)
+                          const customerSelectedAccounts = unpaidAccounts.filter(a => selectedAccounts.has(a.id))
+                          if (customerSelectedAccounts.length > 0) {
+                            openReceiptModal(group.partner_code)
+                          }
                         }}
-                        disabled={group.total_balance === 0}
+                        disabled={unpaidAccounts.filter(a => selectedAccounts.has(a.id)).length === 0}
                         className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:bg-gray-300"
                       >
                         收款
                       </button>
                     </div>
 
-                    {/* Account Details with Items */}
+                    {/* Account Details */}
                     {isExpanded && (
                       <div className="bg-gray-50 dark:bg-gray-900 px-4 pb-4">
-                        {group.accounts.map((account) => {
-                          const isAccountExpanded = expandedAccounts.has(account.id)
-                          const isOverdue = account.status !== 'paid' &&
-                            new Date(account.due_date) < new Date()
+                        <table className="w-full">
+                          <thead className="border-b">
+                            <tr>
+                              <th className="pb-2 text-left text-xs font-semibold text-gray-900 dark:text-gray-100"></th>
+                              <th className="pb-2 text-left text-xs font-semibold text-gray-900 dark:text-gray-100">銷售單號</th>
+                              <th className="pb-2 text-left text-xs font-semibold text-gray-900 dark:text-gray-100">商品</th>
+                              <th className="pb-2 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">數量</th>
+                              <th className="pb-2 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">應收金額</th>
+                              <th className="pb-2 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">已收金額</th>
+                              <th className="pb-2 pr-4 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">餘額</th>
+                              <th className="pb-2 pl-4 text-left text-xs font-semibold text-gray-900 dark:text-gray-100">到期日</th>
+                              <th className="pb-2 text-left text-xs font-semibold text-gray-900 dark:text-gray-100">付款方式</th>
+                              <th className="pb-2 text-center text-xs font-semibold text-gray-900 dark:text-gray-100">狀態</th>
+                              <th className="pb-2 text-center text-xs font-semibold text-gray-900 dark:text-gray-100">操作</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {group.accounts.map((account) => {
+                              const isOverdue = account.status !== 'paid' &&
+                                new Date(account.due_date) < new Date()
 
-                          return (
-                            <div key={account.id} className="mb-4 rounded border border-gray-200 bg-white">
-                              {/* Account Header */}
-                              <div
-                                className="flex cursor-pointer items-center gap-4 p-3 hover:bg-gray-50 dark:hover:bg-gray-700"
-                                onClick={() => toggleAccount(account.id)}
-                              >
-                                <span className="text-blue-600">
-                                  {isAccountExpanded ? '▼' : '▶'}
-                                </span>
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium text-gray-900 dark:text-gray-100">
-                                      {account.ref_no}
-                                    </span>
-                                    {account.sales && (
-                                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                                        |
-                                      </span>
+                              return (
+                                <tr key={account.id} className="hover:bg-white dark:hover:bg-gray-800">
+                                  <td className="py-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedAccounts.has(account.id)}
+                                      onChange={() => toggleAccount(account.id)}
+                                      disabled={account.status === 'paid'}
+                                      className="h-4 w-4"
+                                    />
+                                  </td>
+                                  <td className="py-2 text-sm text-gray-900 dark:text-gray-100">
+                                    {account.ref_no}
+                                  </td>
+                                  <td className="py-2 text-sm text-gray-900 dark:text-gray-100">
+                                    {account.sale_item ? (
+                                      <div>
+                                        <div className="font-medium">{account.sale_item.snapshot_name}</div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">{account.sale_item.products.item_code}</div>
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-400">-</span>
                                     )}
-                                    {account.sales && (
+                                  </td>
+                                  <td className="py-2 text-right text-sm text-gray-900 dark:text-gray-100">
+                                    {account.sale_item ? (
+                                      `${account.sale_item.quantity} ${account.sale_item.products.unit}`
+                                    ) : (
+                                      <span className="text-gray-400">-</span>
+                                    )}
+                                  </td>
+                                  <td className="py-2 text-right text-sm text-gray-900 dark:text-gray-100">
+                                    {formatCurrency(account.amount)}
+                                  </td>
+                                  <td className="py-2 text-right text-sm text-gray-900 dark:text-gray-100">
+                                    {formatCurrency(account.received_paid)}
+                                  </td>
+                                  <td className="py-2 pr-4 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                    {formatCurrency(account.balance)}
+                                  </td>
+                                  <td className={`py-2 pl-4 text-sm ${isOverdue ? 'font-semibold text-red-600' : 'text-gray-900'}`}>
+                                    {formatDate(account.due_date)}
+                                    {isOverdue && ' (逾期)'}
+                                  </td>
+                                  <td className="py-2 text-sm">
+                                    {account.sales ? (
                                       <select
                                         value={account.sales.payment_method}
                                         onChange={(e) => handleUpdatePaymentMethod(account.sales!.id, e.target.value)}
                                         disabled={updatingPayment === account.sales.id}
                                         onClick={(e) => e.stopPropagation()}
-                                        className={`text-xs rounded border px-2 py-0.5 ${
+                                        className={`text-xs rounded border px-2 py-1 ${
                                           account.sales.payment_method === 'pending'
-                                            ? 'border-orange-400 bg-orange-50 text-orange-700'
-                                            : 'border-gray-300 bg-white text-gray-700'
+                                            ? 'border-orange-400 bg-orange-50 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
+                                            : 'border-gray-300 bg-white text-gray-700 dark:bg-gray-700 dark:text-gray-300'
                                         }`}
                                       >
                                         <option value="cash">現金</option>
@@ -516,95 +496,40 @@ export default function ARPageV2() {
                                         <option value="cod">貨到付款</option>
                                         <option value="pending">待確定</option>
                                       </select>
+                                    ) : (
+                                      <span className="text-gray-400">-</span>
                                     )}
-                                    <span className={`text-xs ${isOverdue ? 'font-semibold text-red-600' : 'text-gray-500'}`}>
-                                      到期: {formatDate(account.due_date)}
-                                      {isOverdue && ' (逾期)'}
+                                  </td>
+                                  <td className="py-2 text-center">
+                                    <span className={`inline-block rounded px-2 py-1 text-xs ${
+                                      account.status === 'paid'
+                                        ? 'bg-green-100 text-green-800'
+                                        : account.status === 'partial'
+                                        ? 'bg-yellow-100 text-yellow-800'
+                                        : 'bg-red-100 text-red-800'
+                                    }`}>
+                                      {account.status === 'paid' ? '已收清' :
+                                       account.status === 'partial' ? '部分收款' : '未收'}
                                     </span>
-                                  </div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    應收 {formatCurrency(account.amount)} |
-                                    已收 {formatCurrency(account.received_paid)} |
-                                    餘額 {formatCurrency(account.balance)}
-                                  </div>
-                                </div>
-                                <span className={`inline-block rounded px-2 py-1 text-xs ${
-                                  account.status === 'paid'
-                                    ? 'bg-green-100 text-green-800'
-                                    : account.status === 'partial'
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-red-100 text-red-800'
-                                }`}>
-                                  {account.status === 'paid' ? '已收清' :
-                                   account.status === 'partial' ? '部分收款' : '未收'}
-                                </span>
-                              </div>
-
-                              {/* Sale Items */}
-                              {isAccountExpanded && account.sales?.sale_items && (
-                                <div className="border-t border-gray-200 p-3">
-                                  <table className="w-full text-sm">
-                                    <thead className="border-b text-xs">
-                                      <tr>
-                                        <th className="pb-2 text-left"></th>
-                                        <th className="pb-2 text-left font-semibold text-gray-700">商品名稱</th>
-                                        <th className="pb-2 text-center font-semibold text-gray-700">數量</th>
-                                        <th className="pb-2 text-right font-semibold text-gray-700">單價</th>
-                                        <th className="pb-2 text-right font-semibold text-gray-700">小計</th>
-                                        <th className="pb-2 text-right font-semibold text-gray-700">已收</th>
-                                        <th className="pb-2 text-right font-semibold text-gray-700">餘額</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {account.sales.sale_items.map((item) => {
-                                        const itemKey = `${account.id}_${item.id}`
-                                        const isItemSelected = selectedItems.has(itemKey)
-
-                                        return (
-                                          <tr key={item.id} className="border-b last:border-b-0">
-                                            <td className="py-2">
-                                              <input
-                                                type="checkbox"
-                                                checked={isItemSelected}
-                                                onChange={() => toggleItem(account.id, item.id, item.balance)}
-                                                disabled={item.balance === 0}
-                                                className="h-4 w-4"
-                                                onClick={(e) => e.stopPropagation()}
-                                              />
-                                            </td>
-                                            <td className="py-2 text-gray-900">
-                                              {item.snapshot_name}
-                                              {item.products && (
-                                                <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                                                  ({item.products.item_code})
-                                                </span>
-                                              )}
-                                            </td>
-                                            <td className="py-2 text-center text-gray-900">
-                                              {item.quantity} {item.products?.unit}
-                                            </td>
-                                            <td className="py-2 text-right text-gray-900">
-                                              {formatCurrency(item.price)}
-                                            </td>
-                                            <td className="py-2 text-right text-gray-900">
-                                              {formatCurrency(item.subtotal)}
-                                            </td>
-                                            <td className="py-2 text-right text-gray-600">
-                                              {formatCurrency(item.received_amount)}
-                                            </td>
-                                            <td className="py-2 text-right font-semibold text-gray-900 dark:text-gray-100">
-                                              {formatCurrency(item.balance)}
-                                            </td>
-                                          </tr>
-                                        )
-                                      })}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
+                                  </td>
+                                  <td className="py-2 text-center">
+                                    <button
+                                      onClick={() => {
+                                        // 只选中这一笔
+                                        setSelectedAccounts(new Set([account.id]))
+                                        openReceiptModal(group.partner_code)
+                                      }}
+                                      disabled={account.status === 'paid'}
+                                      className="rounded bg-green-500 px-3 py-1 text-xs font-medium text-white hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                    >
+                                      收款
+                                    </button>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </div>
@@ -618,76 +543,19 @@ export default function ARPageV2() {
       {/* Receipt Modal */}
       {showReceiptModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="w-full max-w-2xl rounded-lg bg-white dark:bg-gray-800 p-6">
+          <div className="w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-6">
             <h3 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">收款</h3>
 
             {error && (
               <div className="mb-4 rounded bg-red-50 dark:bg-red-900 p-3 text-red-700 dark:text-red-200">{error}</div>
             )}
 
-            {/* Selected Items List */}
             <div className="mb-4">
-              <label className="mb-2 block text-sm font-medium text-gray-900 dark:text-gray-100">
-                已選擇 {selectedItems.size} 個商品
+              <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-100">
+                已選擇 {selectedAccounts.size} 筆帳款
               </label>
-              <div className="max-h-64 overflow-y-auto rounded border border-gray-200 dark:border-gray-700 dark:bg-gray-800">
-                <table className="w-full text-sm">
-                  <thead className="border-b bg-gray-50 dark:bg-gray-900">
-                    <tr>
-                      <th className="p-2 text-left font-semibold text-gray-700 dark:text-gray-300">銷售單號</th>
-                      <th className="p-2 text-left font-semibold text-gray-700 dark:text-gray-300">商品名稱</th>
-                      <th className="p-2 text-right font-semibold text-gray-700 dark:text-gray-300">數量</th>
-                      <th className="p-2 text-right font-semibold text-gray-700 dark:text-gray-300">餘額</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {Array.from(selectedItems.entries()).map(([key, selection]) => {
-                      // Find the account and item details
-                      let accountNo = ''
-                      let itemName = ''
-                      let itemQty = 0
-                      let itemUnit = ''
-                      let itemBalance = selection.amount
-
-                      customerGroups.forEach(group => {
-                        group.accounts.forEach(account => {
-                          if (account.id === selection.accountId && account.sales?.sale_items) {
-                            accountNo = account.ref_no
-                            const item = account.sales.sale_items.find(i => i.id === selection.itemId)
-                            if (item) {
-                              itemName = item.snapshot_name
-                              itemQty = item.quantity
-                              itemUnit = item.products?.unit || ''
-                            }
-                          }
-                        })
-                      })
-
-                      return (
-                        <tr key={key}>
-                          <td className="p-2 text-gray-900 dark:text-gray-100">{accountNo}</td>
-                          <td className="p-2 text-gray-900 dark:text-gray-100">{itemName}</td>
-                          <td className="p-2 text-right text-gray-900">
-                            {itemQty} {itemUnit}
-                          </td>
-                          <td className="p-2 text-right font-semibold text-gray-900 dark:text-gray-100">
-                            {formatCurrency(itemBalance)}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                  <tfoot className="border-t bg-gray-50">
-                    <tr>
-                      <td colSpan={3} className="p-2 text-right font-semibold text-gray-900 dark:text-gray-100">
-                        應收總額:
-                      </td>
-                      <td className="p-2 text-right text-lg font-bold text-gray-900 dark:text-gray-100">
-                        {formatCurrency(getSelectedTotal())}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
+              <div className="rounded bg-gray-50 dark:bg-gray-700 p-3 text-lg font-bold text-gray-900 dark:text-gray-100">
+                應收總額: {formatCurrency(getSelectedTotal())}
               </div>
             </div>
 
