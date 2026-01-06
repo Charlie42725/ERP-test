@@ -56,11 +56,26 @@ export async function GET(request: NextRequest) {
     if (itemIds.length > 0) {
       const { data: items } = await supabaseServer
         .from('purchase_items')
-        .select('id, quantity, cost, subtotal, product_id, products:product_id(name, item_code, unit)')
+        .select('id, quantity, cost, subtotal, product_id, purchase_id, products:product_id(name, item_code, unit)')
         .in('id', itemIds)
 
       itemsMap = new Map(
         (items as any[])?.map(item => [item.id, item]) || []
+      )
+    }
+
+    // Fetch purchase details to get purchase_no
+    const purchaseIds = [...new Set((accounts as any[])?.filter(a => a.ref_type === 'purchase').map(a => a.ref_id) || [])]
+    let purchasesMap = new Map()
+
+    if (purchaseIds.length > 0) {
+      const { data: purchases } = await supabaseServer
+        .from('purchases')
+        .select('id, purchase_no')
+        .in('id', purchaseIds)
+
+      purchasesMap = new Map(
+        (purchases as any[])?.map(p => [p.id, p]) || []
       )
     }
 
@@ -72,7 +87,8 @@ export async function GET(request: NextRequest) {
     const accountsWithDetails = (accounts as any[])?.map(account => ({
       ...account,
       vendors: vendorsMap.get(account.partner_code) || null,
-      purchase_item: account.purchase_item_id ? itemsMap.get(account.purchase_item_id) : null
+      purchase_item: account.purchase_item_id ? itemsMap.get(account.purchase_item_id) : null,
+      purchases: account.ref_type === 'purchase' ? purchasesMap.get(account.ref_id) : null
     }))
 
     return NextResponse.json({ ok: true, data: accountsWithDetails })

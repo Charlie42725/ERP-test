@@ -71,8 +71,8 @@ export async function DELETE(
   try {
     const { id } = await context.params
 
-    // 1. Delete related partner accounts (AP) - now using purchase_item_id
-    // First, get all purchase item IDs for this purchase
+    // 1. Delete related partner accounts (AP)
+    // Delete by purchase_item_id (new method)
     const { data: itemsForAP, error: itemsForAPError } = await (supabaseServer
       .from('purchase_items') as any)
       .select('id')
@@ -82,17 +82,24 @@ export async function DELETE(
       const itemIds = itemsForAP.map((item: any) => item.id)
 
       // Delete AP records by purchase_item_id
-      const { error: apDeleteError } = await (supabaseServer
+      await (supabaseServer
         .from('partner_accounts') as any)
         .delete()
         .in('purchase_item_id', itemIds)
+    }
 
-      if (apDeleteError) {
-        return NextResponse.json(
-          { ok: false, error: `Failed to delete AP: ${apDeleteError.message}` },
-          { status: 500 }
-        )
-      }
+    // Also delete by ref_id (old method, for backward compatibility)
+    const { error: apDeleteError2 } = await (supabaseServer
+      .from('partner_accounts') as any)
+      .delete()
+      .eq('ref_type', 'purchase')
+      .eq('ref_id', id)
+
+    if (apDeleteError2) {
+      return NextResponse.json(
+        { ok: false, error: `Failed to delete AP: ${apDeleteError2.message}` },
+        { status: 500 }
+      )
     }
 
     // 2. Delete purchase items (triggers will handle inventory restoration via inventory_logs)

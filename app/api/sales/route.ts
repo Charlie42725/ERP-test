@@ -19,6 +19,9 @@ export async function GET(request: NextRequest) {
       .from('sales') as any)
       .select(`
         *,
+        customers:customer_code (
+          customer_name
+        ),
         sale_items (
           id,
           quantity,
@@ -49,8 +52,22 @@ export async function GET(request: NextRequest) {
       query = query.eq('source', source)
     }
 
+    // Search by keyword in sale_no, customer_code, or customer_name
     if (keyword) {
-      query = query.or(`sale_no.ilike.%${keyword}%,customer_code.ilike.%${keyword}%`)
+      // First find customer codes that match the keyword
+      const { data: matchingCustomers } = await supabaseServer
+        .from('customers')
+        .select('customer_code')
+        .ilike('customer_name', `%${keyword}%`)
+
+      const matchingCodes = matchingCustomers?.map(c => c.customer_code) || []
+
+      // Build the search query
+      if (matchingCodes.length > 0) {
+        query = query.or(`sale_no.ilike.%${keyword}%,customer_code.in.(${matchingCodes.join(',')})`)
+      } else {
+        query = query.ilike('sale_no', `%${keyword}%`)
+      }
     }
 
     const { data, error } = await query
@@ -152,31 +169,62 @@ export async function POST(request: NextRequest) {
 
     // 2. Check stock availability for each item
     for (const item of draft.items) {
-      const { data: product } = await (supabaseServer
-        .from('products') as any)
-        .select('stock, allow_negative, name')
-        .eq('id', item.product_id)
-        .single()
+      // 如果是從一番賞售出，檢查一番賞庫存
+      if (item.ichiban_kuji_prize_id) {
+        const { data: prize } = await (supabaseServer
+          .from('ichiban_kuji_prizes') as any)
+          .select('remaining, prize_tier')
+          .eq('id', item.ichiban_kuji_prize_id)
+          .single()
 
-      if (!product) {
-        // Rollback: delete the sale
-        await (supabaseServer.from('sales') as any).delete().eq('id', sale.id)
-        return NextResponse.json(
-          { ok: false, error: `Product not found: ${item.product_id}` },
-          { status: 400 }
-        )
-      }
+        if (!prize) {
+          // Rollback: delete the sale
+          await (supabaseServer.from('sales') as any).delete().eq('id', sale.id)
+          return NextResponse.json(
+            { ok: false, error: `Prize not found: ${item.ichiban_kuji_prize_id}` },
+            { status: 400 }
+          )
+        }
 
-      if (!product.allow_negative && product.stock < item.quantity) {
-        // Rollback: delete the sale
-        await (supabaseServer.from('sales') as any).delete().eq('id', sale.id)
-        return NextResponse.json(
-          {
-            ok: false,
-            error: `Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`,
-          },
-          { status: 400 }
-        )
+        if (prize.remaining < item.quantity) {
+          // Rollback: delete the sale
+          await (supabaseServer.from('sales') as any).delete().eq('id', sale.id)
+          return NextResponse.json(
+            {
+              ok: false,
+              error: `${prize.prize_tier} 庫存不足。剩餘: ${prize.remaining}, 需要: ${item.quantity}`,
+            },
+            { status: 400 }
+          )
+        }
+      } else {
+        // 一般商品，檢查商品庫存
+        const { data: product } = await (supabaseServer
+          .from('products') as any)
+          .select('stock, allow_negative, name')
+          .eq('id', item.product_id)
+          .single()
+
+        if (!product) {
+          // Rollback: delete the sale
+          await (supabaseServer.from('sales') as any).delete().eq('id', sale.id)
+          return NextResponse.json(
+            { ok: false, error: `Product not found: ${item.product_id}` },
+            { status: 400 }
+          )
+        }
+
+        if (!product.allow_negative && product.stock < item.quantity) {
+          // Rollback: delete the sale
+          await (supabaseServer.from('sales') as any).delete().eq('id', sale.id)
+          return NextResponse.json(
+            {
+              ok: false,
+              error: `${product.name} 庫存不足。剩餘: ${product.stock}, 需要: ${item.quantity}`,
+            },
+            { status: 400 }
+          )
+        }
       }
     }
 
@@ -195,6 +243,8 @@ export async function POST(request: NextRequest) {
           quantity: item.quantity,
           price: item.price,
           snapshot_name: product?.name || null,
+          ichiban_kuji_prize_id: item.ichiban_kuji_prize_id || null,
+          ichiban_kuji_id: item.ichiban_kuji_id || null,
         }
       })
     )
@@ -224,7 +274,56 @@ export async function POST(request: NextRequest) {
 
     const total = Math.max(0, subtotal - discountAmount)
 
-    // 5. Update sale to confirmed (this will trigger DB functions for inventory and AR)
+    // 5. Deduct ONLY ichiban kuji remaining (product stock is auto-deducted by DB trigger)
+    for (const item of draft.items) {
+      // 如果是從一番賞售出，扣除一番賞的 remaining
+      if (item.ichiban_kuji_prize_id) {
+        const { data: prize, error: fetchPrizeError } = await (supabaseServer
+          .from('ichiban_kuji_prizes') as any)
+          .select('remaining')
+          .eq('id', item.ichiban_kuji_prize_id)
+          .single()
+
+        if (fetchPrizeError) {
+          // Rollback: delete items and sale
+          await (supabaseServer.from('sale_items') as any).delete().eq('sale_id', sale.id)
+          await (supabaseServer.from('sales') as any).delete().eq('id', sale.id)
+          return NextResponse.json(
+            { ok: false, error: `Failed to fetch prize: ${fetchPrizeError.message}` },
+            { status: 500 }
+          )
+        }
+
+        // 檢查一番賞庫存
+        if (prize.remaining < item.quantity) {
+          // Rollback: delete items and sale
+          await (supabaseServer.from('sale_items') as any).delete().eq('sale_id', sale.id)
+          await (supabaseServer.from('sales') as any).delete().eq('id', sale.id)
+          return NextResponse.json(
+            { ok: false, error: `該賞已售完或庫存不足` },
+            { status: 400 }
+          )
+        }
+
+        // 扣除一番賞庫的 remaining
+        const { error: updatePrizeError } = await (supabaseServer
+          .from('ichiban_kuji_prizes') as any)
+          .update({ remaining: prize.remaining - item.quantity })
+          .eq('id', item.ichiban_kuji_prize_id)
+
+        if (updatePrizeError) {
+          // Rollback: delete items and sale
+          await (supabaseServer.from('sale_items') as any).delete().eq('sale_id', sale.id)
+          await (supabaseServer.from('sales') as any).delete().eq('id', sale.id)
+          return NextResponse.json(
+            { ok: false, error: `Failed to deduct prize inventory: ${updatePrizeError.message}` },
+            { status: 500 }
+          )
+        }
+      }
+    }
+
+    // 6. Update sale to confirmed (product stock will be auto-deducted by DB trigger, AR by another trigger)
     const { data: confirmedSale, error: confirmError } = await (supabaseServer
       .from('sales') as any)
       .update({
@@ -236,7 +335,25 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (confirmError) {
-      // Rollback: delete items and sale
+      // Rollback: restore ONLY ichiban kuji remaining (product stock will be auto-restored by DB trigger on delete)
+      for (const item of draft.items) {
+        // 恢復一番賞庫存
+        if (item.ichiban_kuji_prize_id) {
+          const { data: prize } = await (supabaseServer
+            .from('ichiban_kuji_prizes') as any)
+            .select('remaining')
+            .eq('id', item.ichiban_kuji_prize_id)
+            .single()
+
+          if (prize) {
+            await (supabaseServer
+              .from('ichiban_kuji_prizes') as any)
+              .update({ remaining: prize.remaining + item.quantity })
+              .eq('id', item.ichiban_kuji_prize_id)
+          }
+        }
+      }
+      // Delete items and sale (product stock will be auto-restored by trigger)
       await (supabaseServer.from('sale_items') as any).delete().eq('sale_id', sale.id)
       await (supabaseServer.from('sales') as any).delete().eq('id', sale.id)
       return NextResponse.json(

@@ -82,6 +82,31 @@ export type PurchaseDraft = {
   note?: string
 }
 
+// Ichiban Kuji types
+export type IchibanKujiPrize = {
+  id?: string
+  prize_tier: string
+  product_id: string
+  quantity: number
+}
+
+export type IchibanKuji = {
+  id: string
+  name: string
+  total_draws: number
+  avg_cost: number
+  price: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type IchibanKujiDraft = {
+  name: string
+  price: number
+  prizes: IchibanKujiPrize[]
+}
+
 // API Response types
 export type ApiResponse<T = unknown> = {
   ok: boolean

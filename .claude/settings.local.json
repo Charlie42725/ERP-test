@@ -10,7 +10,9 @@
       "Bash(psql:*)",
       "Bash(curl:*)",
       "Bash(clip:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(tree:*)",
+      "Bash(find:*)"
     ]
   }
 }

@@ -70,6 +70,8 @@ export const saleDraftSchema = z.object({
       product_id: z.string().uuid(),
       quantity: z.number().int().positive('Quantity must be positive'),
       price: z.number().min(0, 'Price must be positive'),
+      ichiban_kuji_prize_id: z.string().uuid().optional(), // 如果是從一番賞售出
+      ichiban_kuji_id: z.string().uuid().optional(), // 所屬一番賞ID
     })
   ).min(1, 'At least one item is required'),
 })
@@ -125,4 +127,17 @@ export const settlementSchema = z.object({
       amount: z.number().positive('Amount must be positive'),
     })
   ).min(1, 'At least one allocation is required'),
+})
+
+// Ichiban Kuji schemas
+export const ichibanKujiPrizeSchema = z.object({
+  prize_tier: z.string().min(1, 'Prize tier is required'),
+  product_id: z.string().uuid('Invalid product ID'),
+  quantity: z.number().int().positive('Quantity must be positive'),
+})
+
+export const ichibanKujiDraftSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  price: z.number().min(0, 'Price must be positive'),
+  prizes: z.array(ichibanKujiPrizeSchema).min(1, 'At least one prize is required'),
 })

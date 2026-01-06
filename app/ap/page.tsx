@@ -28,6 +28,10 @@ type APAccount = {
       unit: string
     }
   }
+  purchases?: {
+    id: string
+    purchase_no: string
+  } | null
 }
 
 type VendorGroup = {

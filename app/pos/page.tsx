@@ -7,6 +7,8 @@ import type { Product, SaleItem, PaymentMethod } from '@/types'
 type CartItem = SaleItem & {
   product: Product
   isGift?: boolean
+  ichiban_kuji_prize_id?: string
+  ichiban_kuji_id?: string
 }
 
 type Customer = {
@@ -15,6 +17,25 @@ type Customer = {
   customer_name: string
   phone: string | null
   is_active: boolean
+}
+
+type IchibanKuji = {
+  id: string
+  name: string
+  total_draws: number
+  avg_cost: number
+  price: number
+  is_active: boolean
+  created_at: string
+}
+
+type IchibanKujiPrize = {
+  id: string
+  prize_tier: string
+  product_id: string
+  quantity: number
+  remaining: number
+  products: Product
 }
 
 export default function POSPage() {
@@ -34,9 +55,16 @@ export default function POSPage() {
   const [discountValue, setDiscountValue] = useState('')
   const barcodeInputRef = useRef<HTMLInputElement>(null)
 
+  // 一番賞相關狀態
+  const [mode, setMode] = useState<'products' | 'ichiban-kuji'>('products')
+  const [ichibanKujis, setIchibanKujis] = useState<IchibanKuji[]>([])
+  const [selectedKuji, setSelectedKuji] = useState<IchibanKuji | null>(null)
+  const [kujiPrizes, setKujiPrizes] = useState<IchibanKujiPrize[]>([])
+
   useEffect(() => {
     fetchCustomers()
     fetchProducts()
+    fetchIchibanKujis()
   }, [])
 
   const fetchCustomers = async () => {
@@ -61,6 +89,80 @@ export default function POSPage() {
     } catch (err) {
       console.error('Failed to fetch products:', err)
     }
+  }
+
+  const fetchIchibanKujis = async () => {
+    try {
+      const res = await fetch('/api/ichiban-kuji?active=true')
+      const data = await res.json()
+      if (data.ok) {
+        setIchibanKujis(data.data || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch ichiban kujis:', err)
+    }
+  }
+
+  const fetchKujiPrizes = async (kujiId: string) => {
+    try {
+      const res = await fetch(`/api/ichiban-kuji/${kujiId}`)
+      const data = await res.json()
+      if (data.ok && data.data.ichiban_kuji_prizes) {
+        setKujiPrizes(data.data.ichiban_kuji_prizes || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch kuji prizes:', err)
+    }
+  }
+
+  const handleKujiClick = async (kuji: IchibanKuji) => {
+    setSelectedKuji(kuji)
+    await fetchKujiPrizes(kuji.id)
+  }
+
+  const handlePrizeClick = (prize: IchibanKujiPrize, kuji: IchibanKuji) => {
+    // 檢查一番賞庫的剩餘數量
+    if (prize.remaining <= 0) {
+      setError(`${prize.prize_tier} 已售完`)
+      return
+    }
+
+    // 直接將賞品加入購物車，使用一番賞的價格，並記錄一番賞信息
+    setCart((prev) => {
+      // 檢查購物車中是否已有相同的一番賞商品（需要同時匹配 product_id 和 prize_id）
+      const existingIndex = prev.findIndex(
+        (item) => item.product_id === prize.product_id && item.ichiban_kuji_prize_id === prize.id
+      )
+
+      if (existingIndex >= 0) {
+        // 如果已經存在，增加數量
+        return prev.map((item, index) =>
+          index === existingIndex
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        )
+      }
+
+      // 如果不存在，新增項目
+      return [
+        ...prev,
+        {
+          product_id: prize.product_id,
+          quantity: 1,
+          price: kuji.price,
+          product: prize.products,
+          ichiban_kuji_prize_id: prize.id,
+          ichiban_kuji_id: kuji.id,
+        },
+      ]
+    })
+
+    setError('')
+  }
+
+  const handleBackToKujiList = () => {
+    setSelectedKuji(null)
+    setKujiPrizes([])
   }
 
   const addToCart = (product: Product) => {
@@ -154,6 +256,9 @@ export default function POSPage() {
             product_id: item.product_id,
             quantity: item.quantity,
             price: item.isGift ? 0 : item.price,
+            // @ts-ignore - 傳遞一番賞信息
+            ichiban_kuji_prize_id: item.ichiban_kuji_prize_id,
+            ichiban_kuji_id: item.ichiban_kuji_id,
           })),
         }),
       })
@@ -194,33 +299,133 @@ export default function POSPage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Left - Product Grid */}
+        {/* Left - Product Grid / Ichiban Kuji */}
         <div className="w-[500px] flex flex-col bg-white p-4 overflow-hidden border-r-2 border-gray-300">
-          <div className="mb-3">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="掃描條碼或搜尋商品"
-              className="w-full border-2 border-gray-400 rounded px-3 py-2 text-sm text-black focus:border-black focus:outline-none"
-            />
+          {/* 模式切換按鈕 */}
+          <div className="mb-3 flex gap-2">
+            <button
+              onClick={() => {
+                setMode('products')
+                setSelectedKuji(null)
+                setKujiPrizes([])
+              }}
+              className={`flex-1 py-2 px-3 rounded font-bold border-2 transition-all text-sm ${
+                mode === 'products'
+                  ? 'bg-blue-500 text-white border-blue-600'
+                  : 'bg-white text-black border-gray-400 hover:bg-gray-100'
+              }`}
+            >
+              商品庫
+            </button>
+            <button
+              onClick={() => {
+                setMode('ichiban-kuji')
+                setSelectedKuji(null)
+                setKujiPrizes([])
+              }}
+              className={`flex-1 py-2 px-3 rounded font-bold border-2 transition-all text-sm ${
+                mode === 'ichiban-kuji'
+                  ? 'bg-purple-500 text-white border-purple-600'
+                  : 'bg-white text-black border-gray-400 hover:bg-gray-100'
+              }`}
+            >
+              一番賞庫
+            </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
-            <div className="grid grid-cols-3 gap-2">
-              {filteredProducts.map((product) => (
-                <button
-                  key={product.id}
-                  onClick={() => addToCart(product)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white rounded p-3 shadow hover:shadow-md transition-all active:scale-95 flex flex-col items-center justify-center min-h-[100px] border border-blue-600"
-                >
-                  <div className="text-sm font-bold text-center mb-1 line-clamp-2">{product.name}</div>
-                  <div className="text-lg font-bold">{formatCurrency(product.price)}</div>
-                  <div className="text-xs mt-1">庫存: {product.stock}</div>
-                </button>
-              ))}
-            </div>
-          </div>
+          {mode === 'products' ? (
+            <>
+              {/* 商品庫模式 */}
+              <div className="mb-3">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="掃描條碼或搜尋商品"
+                  className="w-full border-2 border-gray-400 rounded px-3 py-2 text-sm text-black focus:border-black focus:outline-none"
+                />
+              </div>
+
+              <div className="flex-1 overflow-y-auto">
+                <div className="grid grid-cols-3 gap-2">
+                  {filteredProducts.map((product) => (
+                    <button
+                      key={product.id}
+                      onClick={() => addToCart(product)}
+                      className="bg-blue-500 hover:bg-blue-600 text-white rounded p-3 shadow hover:shadow-md transition-all active:scale-95 flex flex-col items-center justify-center min-h-[100px] border border-blue-600"
+                    >
+                      <div className="text-sm font-bold text-center mb-1 line-clamp-2">{product.name}</div>
+                      <div className="text-lg font-bold">{formatCurrency(product.price)}</div>
+                      <div className="text-xs mt-1">庫存: {product.stock}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* 一番賞庫模式 */}
+              {!selectedKuji ? (
+                <>
+                  {/* 一番賞列表 */}
+                  <div className="mb-3">
+                    <div className="text-sm font-bold text-black">選擇一番賞</div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    <div className="space-y-2">
+                      {ichibanKujis.map((kuji) => (
+                        <button
+                          key={kuji.id}
+                          onClick={() => handleKujiClick(kuji)}
+                          className="w-full bg-purple-500 hover:bg-purple-600 text-white rounded p-4 shadow hover:shadow-md transition-all active:scale-95 text-left border border-purple-600"
+                        >
+                          <div className="text-lg font-bold mb-2">{kuji.name}</div>
+                          <div className="text-sm space-y-1">
+                            <div>總抽數: {kuji.total_draws}</div>
+                            <div>每抽售價: {formatCurrency(kuji.price)}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* 賞別選擇 */}
+                  <div className="mb-3 flex items-center gap-2">
+                    <button
+                      onClick={handleBackToKujiList}
+                      className="bg-gray-300 hover:bg-gray-400 text-black rounded px-3 py-2 text-sm font-bold border border-gray-400"
+                    >
+                      ← 返回
+                    </button>
+                    <div className="text-sm font-bold text-black flex-1">{selectedKuji.name}</div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    <div className="grid grid-cols-2 gap-2">
+                      {kujiPrizes.map((prize) => (
+                        <button
+                          key={prize.id}
+                          onClick={() => handlePrizeClick(prize, selectedKuji)}
+                          disabled={prize.remaining <= 0}
+                          className={`rounded p-4 shadow hover:shadow-md transition-all active:scale-95 flex flex-col items-center justify-center min-h-[120px] border-2 ${
+                            prize.remaining > 0
+                              ? 'bg-gradient-to-br from-yellow-400 to-orange-400 hover:from-yellow-500 hover:to-orange-500 border-yellow-600 text-black'
+                              : 'bg-gray-300 border-gray-400 text-gray-600 cursor-not-allowed'
+                          }`}
+                        >
+                          <div className="text-2xl font-bold mb-2">{prize.prize_tier}</div>
+                          <div className="text-sm font-bold text-center mb-1 line-clamp-2">{prize.products.name}</div>
+                          <div className="text-sm mt-1">剩餘: {prize.remaining} 抽</div>
+                          <div className="text-xs mt-1 opacity-75">總數: {prize.quantity} 抽</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </div>
 
         {/* Middle - Cart */}
@@ -431,7 +636,10 @@ export default function POSPage() {
                   📦 貨到付款
                 </button>
                 <button
-                  onClick={() => setPaymentMethod('pending')}
+                  onClick={() => {
+                    setPaymentMethod('pending')
+                    setIsPaid(false)
+                  }}
                   className={`py-2 px-2 rounded font-bold border-2 transition-all text-sm text-black ${
                     paymentMethod === 'pending'
                       ? 'bg-orange-400 border-orange-500'
@@ -500,11 +708,14 @@ export default function POSPage() {
             </div>
 
             {/* Payment Status */}
-            <label className="flex items-center gap-2 cursor-pointer border-2 border-gray-400 rounded px-3 py-2 hover:bg-gray-100">
+            <label className={`flex items-center gap-2 border-2 border-gray-400 rounded px-3 py-2 ${
+              paymentMethod === 'pending' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-100'
+            }`}>
               <input
                 type="checkbox"
                 checked={isPaid}
                 onChange={(e) => setIsPaid(e.target.checked)}
+                disabled={paymentMethod === 'pending'}
                 className="w-5 h-5"
               />
               <span className="font-bold text-sm text-black">已收款</span>

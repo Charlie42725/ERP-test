@@ -8,6 +8,7 @@ const navItems = [
   { href: '/dashboard', label: '營收報表' },
   { href: '/pos', label: 'POS 收銀' },
   { href: '/products', label: '商品庫' },
+  { href: '/ichiban-kuji', label: '一番賞庫' },
   { href: '/vendors', label: '廠商管理' },
   { href: '/customers', label: '客戶管理' },
   { href: '/purchases', label: '進貨管理' },

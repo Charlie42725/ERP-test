@@ -31,6 +31,9 @@ type Sale = {
   total_quantity?: number
   avg_price?: number
   sale_items?: SaleItem[]
+  customers?: {
+    customer_name: string
+  } | null
 }
 
 export default function SalesPage() {
@@ -120,7 +123,7 @@ export default function SalesPage() {
                 type="text"
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
-                placeholder="搜尋銷售單號或客戶代碼"
+                placeholder="搜尋銷售單號或客戶名稱"
                 className="flex-1 rounded border border-gray-300 px-4 py-2 text-gray-900 placeholder:text-gray-900"
               />
             </div>
@@ -185,7 +188,9 @@ export default function SalesPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">{sale.customer_code || '散客'}</td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {sale.customers?.customer_name || '散客'}
+                        </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
                           {formatPaymentMethod(sale.payment_method)}
                         </td>

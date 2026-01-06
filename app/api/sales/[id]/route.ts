@@ -135,12 +135,12 @@ export async function DELETE(
       )
     }
 
-    // 2. If confirmed, need to restore inventory
+    // 2. If confirmed, need to restore ONLY ichiban kuji remaining (product stock auto-restored by DB trigger)
     if (sale.status === 'confirmed') {
-      // Get all sale items
+      // Get all sale items (including ichiban kuji info)
       const { data: items, error: itemsError } = await (supabaseServer
         .from('sale_items') as any)
-        .select('product_id, quantity')
+        .select('product_id, quantity, ichiban_kuji_prize_id, ichiban_kuji_id')
         .eq('sale_id', id)
 
       if (itemsError) {
@@ -150,35 +150,38 @@ export async function DELETE(
         )
       }
 
-      // Restore inventory for each item
+      // Restore ONLY ichiban kuji remaining (product stock will be auto-restored by DB trigger)
       for (const item of items || []) {
-        // Get current stock
-        const { data: product, error: fetchProductError } = await (supabaseServer
-          .from('products') as any)
-          .select('stock')
-          .eq('id', item.product_id)
-          .single()
+        // 如果是從一番賞售出的，恢復一番賞庫存
+        if (item.ichiban_kuji_prize_id) {
+          const { data: prize, error: fetchPrizeError } = await (supabaseServer
+            .from('ichiban_kuji_prizes') as any)
+            .select('remaining')
+            .eq('id', item.ichiban_kuji_prize_id)
+            .single()
 
-        if (fetchProductError) {
-          return NextResponse.json(
-            { ok: false, error: `Failed to fetch product: ${fetchProductError.message}` },
-            { status: 500 }
-          )
-        }
+          if (fetchPrizeError) {
+            return NextResponse.json(
+              { ok: false, error: `Failed to fetch prize: ${fetchPrizeError.message}` },
+              { status: 500 }
+            )
+          }
 
-        // Update stock by adding back the quantity
-        const { error: updateError } = await (supabaseServer
-          .from('products') as any)
-          .update({ stock: product.stock + item.quantity })
-          .eq('id', item.product_id)
+          // 恢復一番賞庫的 remaining
+          const { error: updatePrizeError } = await (supabaseServer
+            .from('ichiban_kuji_prizes') as any)
+            .update({ remaining: prize.remaining + item.quantity })
+            .eq('id', item.ichiban_kuji_prize_id)
 
-        if (updateError) {
-          return NextResponse.json(
-            { ok: false, error: `Failed to restore inventory: ${updateError.message}` },
-            { status: 500 }
-          )
+          if (updatePrizeError) {
+            return NextResponse.json(
+              { ok: false, error: `Failed to restore prize inventory: ${updatePrizeError.message}` },
+              { status: 500 }
+            )
+          }
         }
       }
+      // Product stock will be auto-restored by DB trigger when sale_items are deleted
     }
 
     // 3. Delete related partner accounts (AR)

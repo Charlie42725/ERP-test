@@ -1,0 +1,478 @@
+'use client'
+
+import React, { useState, useEffect } from 'react'
+import { useRouter, useParams } from 'next/navigation'
+import { formatCurrency } from '@/lib/utils'
+
+type Product = {
+  id: string
+  name: string
+  item_code: string
+  barcode?: string | null
+  cost: number
+  unit: string
+}
+
+type Prize = {
+  prize_tier: string
+  product_id: string
+  product?: Product | null
+  quantity: number
+}
+
+export default function EditIchibanKujiPage() {
+  const router = useRouter()
+  const params = useParams()
+  const id = params.id as string
+
+  const [name, setName] = useState('')
+  const [price, setPrice] = useState('')
+  const [prizes, setPrizes] = useState<Prize[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [searchInputs, setSearchInputs] = useState<{ [key: number]: string }>({})
+  const [searchResults, setSearchResults] = useState<{ [key: number]: Product[] }>({})
+
+  useEffect(() => {
+    fetchProducts()
+    fetchKuji()
+  }, [])
+
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch('/api/products?active=true&all=true')
+      const data = await res.json()
+      if (data.ok) {
+        setProducts(data.data || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch products:', err)
+    }
+  }
+
+  const fetchKuji = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/ichiban-kuji/${id}`)
+      const data = await res.json()
+
+      if (data.ok) {
+        const kuji = data.data
+        setName(kuji.name)
+        setPrice(kuji.price.toString())
+
+        // Convert prizes with product data
+        const prizesData = kuji.ichiban_kuji_prizes.map((prize: any) => ({
+          prize_tier: prize.prize_tier,
+          product_id: prize.product_id,
+          product: prize.products,
+          quantity: prize.quantity
+        }))
+
+        setPrizes(prizesData)
+
+        // Set search inputs to product names
+        const inputs: { [key: number]: string } = {}
+        prizesData.forEach((prize: Prize, index: number) => {
+          if (prize.product) {
+            inputs[index] = prize.product.name
+          }
+        })
+        setSearchInputs(inputs)
+      } else {
+        setError('找不到一番賞')
+      }
+    } catch (err) {
+      setError('載入失敗')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const addPrize = () => {
+    setPrizes([...prizes, { prize_tier: '', product_id: '', product: null, quantity: 1 }])
+  }
+
+  const removePrize = (index: number) => {
+    setPrizes(prizes.filter((_, i) => i !== index))
+    const newSearchInputs = { ...searchInputs }
+    const newSearchResults = { ...searchResults }
+    delete newSearchInputs[index]
+    delete newSearchResults[index]
+    setSearchInputs(newSearchInputs)
+    setSearchResults(newSearchResults)
+  }
+
+  const updatePrize = (index: number, field: keyof Prize, value: string | number) => {
+    const updated = [...prizes]
+    updated[index] = { ...updated[index], [field]: value }
+    setPrizes(updated)
+  }
+
+  const searchProduct = (index: number, keyword: string) => {
+    setSearchInputs({ ...searchInputs, [index]: keyword })
+
+    if (!keyword.trim()) {
+      const newResults = { ...searchResults }
+      delete newResults[index]
+      setSearchResults(newResults)
+      return
+    }
+
+    const results = products.filter(p =>
+      p.barcode?.toLowerCase().includes(keyword.toLowerCase()) ||
+      p.name.toLowerCase().includes(keyword.toLowerCase()) ||
+      p.item_code.toLowerCase().includes(keyword.toLowerCase())
+    ).slice(0, 8)
+
+    setSearchResults({ ...searchResults, [index]: results })
+  }
+
+  const selectProduct = (index: number, product: Product) => {
+    const updated = [...prizes]
+    updated[index] = {
+      ...updated[index],
+      product_id: product.id,
+      product: product
+    }
+    setPrizes(updated)
+
+    const newInputs = { ...searchInputs }
+    const newResults = { ...searchResults }
+    newInputs[index] = product.name
+    delete newResults[index]
+    setSearchInputs(newInputs)
+    setSearchResults(newResults)
+  }
+
+  const clearSearch = (index: number) => {
+    setTimeout(() => {
+      const newResults = { ...searchResults }
+      delete newResults[index]
+      setSearchResults(newResults)
+    }, 200)
+  }
+
+  const calculateStats = () => {
+    let totalDraws = 0
+    let totalCost = 0
+
+    prizes.forEach(prize => {
+      if (prize.product) {
+        totalDraws += prize.quantity
+        totalCost += prize.product.cost * prize.quantity
+      }
+    })
+
+    const avgCost = totalDraws > 0 ? totalCost / totalDraws : 0
+
+    return { totalDraws, totalCost, avgCost }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    if (!name.trim()) {
+      setError('請輸入一番賞名稱')
+      return
+    }
+
+    const priceNum = parseFloat(price)
+    if (!price || isNaN(priceNum) || priceNum <= 0) {
+      setError('請輸入正確的每抽售價')
+      return
+    }
+
+    if (prizes.length === 0) {
+      setError('請至少新增一個賞項')
+      return
+    }
+
+    for (let i = 0; i < prizes.length; i++) {
+      const prize = prizes[i]
+      if (!prize.prize_tier.trim()) {
+        setError(`第 ${i + 1} 個賞項：請輸入賞別名稱`)
+        return
+      }
+      if (!prize.product_id) {
+        setError(`第 ${i + 1} 個賞項：請選擇商品`)
+        return
+      }
+      if (prize.quantity <= 0) {
+        setError(`第 ${i + 1} 個賞項：數量必須大於 0`)
+        return
+      }
+    }
+
+    setSaving(true)
+
+    try {
+      const res = await fetch(`/api/ichiban-kuji/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          price: parseFloat(price),
+          prizes
+        })
+      })
+
+      const data = await res.json()
+
+      if (data.ok) {
+        alert('更新成功！')
+        router.push('/ichiban-kuji')
+      } else {
+        setError(data.error || '更新失敗')
+      }
+    } catch (err) {
+      setError('更新失敗')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const stats = calculateStats()
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4">
+        <div className="mx-auto max-w-6xl">
+          <div className="rounded-lg bg-white p-8 shadow text-center text-gray-900">
+            載入中...
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-gray-900">編輯一番賞</h1>
+          <button
+            onClick={() => router.push('/ichiban-kuji')}
+            className="rounded bg-gray-500 px-4 py-2 font-medium text-white hover:bg-gray-600"
+          >
+            返回列表
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-lg bg-red-50 p-4 text-red-700">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Basic Info */}
+          <div className="rounded-lg bg-white p-6 shadow">
+            <h2 className="mb-4 text-xl font-semibold text-gray-900">基本資訊</h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-900">
+                  一番賞名稱 *
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full rounded border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="例：鬼滅之刃一番賞"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-900">
+                  每抽售價 *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className="w-full rounded border border-gray-300 px-3 py-2 text-gray-900"
+                  placeholder="例：100"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Prizes */}
+          <div className="rounded-lg bg-white p-6 shadow overflow-visible">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">賞項設定</h2>
+              <button
+                type="button"
+                onClick={addPrize}
+                className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                + 新增賞項
+              </button>
+            </div>
+
+            {prizes.length === 0 ? (
+              <div className="rounded border-2 border-dashed border-gray-300 p-8 text-center text-gray-500">
+                尚未新增任何賞項，點擊上方按鈕新增
+              </div>
+            ) : (
+              <div>
+                <table className="w-full">
+                  <thead className="border-b">
+                    <tr>
+                      <th className="pb-2 text-left text-sm font-semibold text-gray-900 w-24">賞別 *</th>
+                      <th className="pb-2 text-left text-sm font-semibold text-gray-900">商品 *</th>
+                      <th className="pb-2 text-left text-sm font-semibold text-gray-900 w-28">數量 *</th>
+                      <th className="pb-2 text-right text-sm font-semibold text-gray-900 w-32">單位成本</th>
+                      <th className="pb-2 text-right text-sm font-semibold text-gray-900 w-32">小計</th>
+                      <th className="pb-2 text-center text-sm font-semibold text-gray-900 w-20">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {prizes.map((prize, index) => (
+                      <tr key={index}>
+                        <td className="py-2">
+                          <input
+                            type="text"
+                            value={prize.prize_tier}
+                            onChange={(e) => updatePrize(index, 'prize_tier', e.target.value)}
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm text-gray-900"
+                            placeholder="A賞"
+                          />
+                        </td>
+                        <td className="py-2 pr-2">
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={searchInputs[index] || ''}
+                              onChange={(e) => searchProduct(index, e.target.value)}
+                              onBlur={() => clearSearch(index)}
+                              className="w-full rounded border border-gray-300 px-2 py-1 text-sm text-gray-900"
+                              placeholder="掃碼或搜尋商品名稱/品號"
+                              autoComplete="off"
+                            />
+                            {searchResults[index] && searchResults[index].length > 0 && (
+                              <div className="absolute z-[9999] mt-1 w-full min-w-[300px] rounded-md border border-gray-300 bg-white shadow-xl max-h-64 overflow-y-auto">
+                                {searchResults[index].map(product => (
+                                  <div
+                                    key={product.id}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault()
+                                      selectProduct(index, product)
+                                    }}
+                                    className="cursor-pointer px-3 py-2 hover:bg-blue-50 border-b last:border-b-0"
+                                  >
+                                    <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                    <div className="text-xs text-gray-500">
+                                      {product.item_code} | 成本: {formatCurrency(product.cost)}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {searchResults[index] && searchResults[index].length === 0 && (
+                              <div className="absolute z-[9999] mt-1 w-full min-w-[300px] rounded-md border border-gray-300 bg-white shadow-xl">
+                                <div className="px-3 py-2 text-sm text-gray-500">
+                                  找不到商品
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-2 pr-2">
+                          <input
+                            type="number"
+                            min="1"
+                            value={prize.quantity}
+                            onChange={(e) => updatePrize(index, 'quantity', parseInt(e.target.value) || 1)}
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm text-gray-900"
+                          />
+                        </td>
+                        <td className="py-2 text-right text-sm text-gray-900">
+                          {prize.product ? formatCurrency(prize.product.cost) : '-'}
+                        </td>
+                        <td className="py-2 text-right text-sm font-semibold text-gray-900">
+                          {prize.product ? formatCurrency(prize.product.cost * prize.quantity) : '-'}
+                        </td>
+                        <td className="py-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => removePrize(index)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Summary */}
+          {prizes.length > 0 && (
+            <div className="rounded-lg bg-blue-50 p-6 shadow">
+              <h2 className="mb-4 text-xl font-semibold text-gray-900">統計資訊</h2>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+                <div>
+                  <div className="text-sm text-gray-600">總抽數</div>
+                  <div className="text-2xl font-bold text-gray-900">{stats.totalDraws}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-600">總成本</div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {formatCurrency(stats.totalCost)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-600">平均每抽成本</div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {formatCurrency(stats.avgCost)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-600">每抽售價</div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {price ? formatCurrency(parseFloat(price)) : '-'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-600">每抽利潤</div>
+                  <div className={`text-2xl font-bold ${
+                    price && parseFloat(price) > stats.avgCost ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {price ? formatCurrency(parseFloat(price) - stats.avgCost) : '-'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={() => router.push('/ichiban-kuji')}
+              className="flex-1 rounded border border-gray-300 px-4 py-2 text-gray-900 hover:bg-gray-50"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 rounded bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700 disabled:bg-gray-400"
+            >
+              {saving ? '更新中...' : '更新一番賞'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
