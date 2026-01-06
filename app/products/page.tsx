@@ -352,8 +352,12 @@ export default function ProductsPage() {
                         <SortIcon field="updated_at" />
                       </div>
                     </th>
-                    <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">狀態</th>
-                    <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">操作</th>
+                    <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      <div className="flex items-center justify-center">狀態</div>
+                    </th>
+                    <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      <div className="flex items-center justify-center">操作</div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -409,21 +413,21 @@ export default function ProductsPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center text-sm">
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="flex items-center justify-center gap-2 whitespace-nowrap">
                           <Link
                             href={`/products/${product.id}/edit`}
                             className="font-medium text-blue-600 hover:underline"
                           >
                             編輯
                           </Link>
-                          <span className="text-gray-300">|</span>
+                          <span className="text-gray-300 dark:text-gray-600">|</span>
                           <button
                             onClick={() => toggleActive(product.id, product.is_active)}
                             className="font-medium text-green-600 hover:underline"
                           >
                             {product.is_active ? '下架' : '上架'}
                           </button>
-                          <span className="text-gray-300">|</span>
+                          <span className="text-gray-300 dark:text-gray-600">|</span>
                           <button
                             onClick={() => handleDelete(product.id, product.name)}
                             className="font-medium text-red-600 hover:underline"
