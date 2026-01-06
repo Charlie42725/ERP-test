@@ -1,0 +1,182 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { formatCurrency } from '@/lib/utils'
+
+const EXPENSE_CATEGORIES = [
+  '運費',
+  '薪資支出',
+  '租金支出',
+  '文具用品',
+  '旅費',
+  '修繕費',
+  '廣告費',
+  '保險費',
+  '交際費',
+  '捐贈',
+  '稅費',
+  '伙食費',
+  '職工福利',
+  '傭金支出',
+]
+
+export default function NewExpensePage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [formData, setFormData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    category: EXPENSE_CATEGORIES[0],
+    amount: '',
+    note: '',
+  })
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    try {
+      const res = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          amount: parseInt(formData.amount) || 0,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (data.ok) {
+        alert('費用已新增！')
+        router.push('/expenses')
+      } else {
+        setError(data.error || '新增失敗')
+      }
+    } catch (err) {
+      setError('新增失敗')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="mx-auto max-w-2xl">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">新增費用</h1>
+        </div>
+
+        <div className="rounded-lg bg-white p-6 shadow">
+          {error && (
+            <div className="mb-4 rounded border border-red-400 bg-red-50 px-4 py-3 text-red-700">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Date */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-900">
+                日期 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={formData.date}
+                onChange={(e) =>
+                  setFormData({ ...formData, date: e.target.value })
+                }
+                required
+                className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Category */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-900">
+                費用類別 <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.category}
+                onChange={(e) =>
+                  setFormData({ ...formData, category: e.target.value })
+                }
+                required
+                className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+              >
+                {EXPENSE_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Amount */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-900">
+                金額 <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-gray-900">$</span>
+                <input
+                  type="number"
+                  value={formData.amount}
+                  onChange={(e) =>
+                    setFormData({ ...formData, amount: e.target.value })
+                  }
+                  required
+                  min="1"
+                  step="1"
+                  className="w-full rounded border border-gray-300 py-2 pl-8 pr-3 focus:border-blue-500 focus:outline-none"
+                  placeholder="0"
+                />
+              </div>
+              {formData.amount && (
+                <p className="mt-1 text-sm text-gray-900">
+                  {formatCurrency(parseInt(formData.amount) || 0)}
+                </p>
+              )}
+            </div>
+
+            {/* Note */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-900">
+                備註
+              </label>
+              <textarea
+                value={formData.note}
+                onChange={(e) =>
+                  setFormData({ ...formData, note: e.target.value })
+                }
+                rows={3}
+                className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                placeholder="選填"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+              >
+                {loading ? '新增中...' : '新增費用'}
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/expenses')}
+                className="rounded border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50"
+              >
+                取消
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}

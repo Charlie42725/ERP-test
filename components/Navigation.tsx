@@ -5,7 +5,6 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 
 const navItems = [
-  { href: '/', label: '首頁' },
   { href: '/dashboard', label: '營收報表' },
   { href: '/pos', label: 'POS 收銀' },
   { href: '/products', label: '商品庫' },
@@ -16,6 +15,7 @@ const navItems = [
   { href: '/sales', label: '銷售記錄' },
   { href: '/ar', label: '應收帳款' },
   { href: '/ap', label: '應付帳款' },
+  { href: '/expenses', label: '會計記帳' },
 ]
 
 export default function Navigation() {

@@ -141,3 +141,26 @@ export const ichibanKujiDraftSchema = z.object({
   price: z.number().min(0, 'Price must be positive'),
   prizes: z.array(ichibanKujiPrizeSchema).min(1, 'At least one prize is required'),
 })
+
+// Expense schemas
+export const expenseSchema = z.object({
+  date: z.string().min(1, 'Date is required'), // ISO date string
+  category: z.enum([
+    '運費',
+    '薪資支出',
+    '租金支出',
+    '文具用品',
+    '旅費',
+    '修繕費',
+    '廣告費',
+    '保險費',
+    '交際費',
+    '捐贈',
+    '稅費',
+    '伙食費',
+    '職工福利',
+    '傭金支出',
+  ]),
+  amount: z.number().int().positive('Amount must be positive'),
+  note: z.string().optional(),
+})
