@@ -41,20 +41,21 @@ export default function DashboardPage() {
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([])
   const [recentSales, setRecentSales] = useState<RecentSale[]>([])
   const [loading, setLoading] = useState(true)
+  const [dateFrom, setDateFrom] = useState(new Date().toISOString().split('T')[0])
+  const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0])
 
   useEffect(() => {
     fetchDashboardData()
-  }, [])
+  }, [dateFrom, dateTo])
 
   const fetchDashboardData = async () => {
     setLoading(true)
     try {
-      // Fetch today's sales
-      const today = new Date().toISOString().split('T')[0]
-      const salesRes = await fetch(`/api/sales?date_from=${today}&date_to=${today}`)
+      // Fetch sales within date range
+      const salesRes = await fetch(`/api/sales?date_from=${dateFrom}&date_to=${dateTo}`)
       const salesData = await salesRes.json()
-      const todaySalesData = salesData.ok ? salesData.data : []
-      const todaySales = todaySalesData
+      const salesInRange = salesData.ok ? salesData.data : []
+      const totalSales = salesInRange
         .filter((s: any) => s.status === 'confirmed')
         .reduce((sum: number, s: any) => sum + s.total, 0)
 
@@ -96,8 +97,8 @@ export default function DashboardPage() {
         .slice(0, 10)
 
       setStats({
-        todaySales,
-        todayOrders: todaySalesData.length,
+        todaySales: totalSales,
+        todayOrders: salesInRange.length,
         totalAR,
         totalAP,
         lowStockCount: allProducts.filter((p: any) => p.stock < 10).length,
@@ -133,10 +134,38 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-7xl">
         <h1 className="mb-6 text-3xl font-bold text-gray-900">營收報表</h1>
 
+        {/* Date Filter */}
+        <div className="mb-6 rounded-lg bg-white p-4 shadow">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-900">
+                起始日期
+              </label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-900">
+                結束日期
+              </label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* KPI Cards */}
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg bg-white p-6 shadow">
-            <div className="text-sm font-medium text-gray-900">今日營收</div>
+            <div className="text-sm font-medium text-gray-900">期間營收</div>
             <div className="mt-2 text-3xl font-bold text-green-600">
               {formatCurrency(stats.todaySales)}
             </div>
