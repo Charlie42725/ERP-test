@@ -41,12 +41,12 @@ export default function Navigation() {
             </Link>
 
             {/* Desktop Navigation */}
-            <div className="hidden gap-2 lg:flex xl:gap-4">
+            <div className="hidden gap-1 lg:flex xl:gap-2">
               {navItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`rounded px-2 py-2 text-sm font-medium transition-colors xl:px-3 ${
+                  className={`whitespace-nowrap rounded px-2 py-2 text-xs font-medium transition-colors xl:text-sm ${
                     pathname === item.href
                       ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
                       : 'text-gray-900 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-700'

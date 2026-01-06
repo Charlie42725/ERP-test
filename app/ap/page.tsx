@@ -380,8 +380,8 @@ export default function APPageV2() {
                               <th className="pb-2 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">數量</th>
                               <th className="pb-2 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">應付金額</th>
                               <th className="pb-2 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">已付金額</th>
-                              <th className="pb-2 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">餘額</th>
-                              <th className="pb-2 text-left text-xs font-semibold text-gray-900 dark:text-gray-100">到期日</th>
+                              <th className="pb-2 pr-4 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">餘額</th>
+                              <th className="pb-2 pl-4 text-left text-xs font-semibold text-gray-900 dark:text-gray-100">到期日</th>
                               <th className="pb-2 text-center text-xs font-semibold text-gray-900 dark:text-gray-100">狀態</th>
                             </tr>
                           </thead>
@@ -427,10 +427,10 @@ export default function APPageV2() {
                                   <td className="py-2 text-right text-sm text-gray-900 dark:text-gray-100">
                                     {formatCurrency(account.received_paid)}
                                   </td>
-                                  <td className="py-2 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                  <td className="py-2 pr-4 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
                                     {formatCurrency(account.balance)}
                                   </td>
-                                  <td className={`py-2 text-sm ${isOverdue ? 'font-semibold text-red-600' : 'text-gray-900'}`}>
+                                  <td className={`py-2 pl-4 text-sm ${isOverdue ? 'font-semibold text-red-600' : 'text-gray-900'}`}>
                                     {formatDate(account.due_date)}
                                     {isOverdue && ' (逾期)'}
                                   </td>
