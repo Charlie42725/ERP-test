@@ -853,7 +853,7 @@ export default function POSPage() {
                 return (
                   <div
                     key={`display-${displayIndex}`}
-                    className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded p-2"
+                    className="bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-700 rounded-lg p-3"
                   >
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex-1">
@@ -890,7 +890,41 @@ export default function POSPage() {
                       ×
                     </button>
                   </div>
-                  <div className="flex items-center justify-between">
+                  
+                  {/* Show details for grouped items */}
+                  {isGrouped && item.indices && (
+                    <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 space-y-1">
+                      {item.indices.map((idx) => {
+                        const cartItem = cart[idx]
+                        const priceItem = cartWithComboPrice[idx]
+                        return (
+                          <div key={idx} className="flex items-center justify-between text-xs">
+                            <div className="flex-1 flex items-center gap-2">
+                              <span className="text-purple-600 dark:text-purple-400 font-bold">
+                                {cartItem.product.name.match(/】(.+?) -/)?.[1] || '賞'}
+                              </span>
+                              <span className="text-gray-600 dark:text-gray-400">
+                                {cartItem.product.name.split(' - ')[1] || cartItem.product.name}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-500 dark:text-gray-500">
+                                {formatCurrency(priceItem.price)}
+                              </span>
+                              <button
+                                onClick={() => removeFromCart(cartItem.product_id, idx)}
+                                className="text-red-500 hover:text-red-700 font-bold"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between mt-2">
                     {!item.ichiban_kuji_id ? (
                       <div className="flex items-center gap-1">
                         <button
