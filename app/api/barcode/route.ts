@@ -36,10 +36,9 @@ export async function GET(request: NextRequest) {
       height,
       includetext: includeText,
       textxalign: 'center',
-      padding: 0,
     })
 
-    return new NextResponse(Buffer.from(png), {
+    return new NextResponse(png as unknown as BodyInit, {
       headers: {
         'Content-Type': 'image/png',
         'Cache-Control': 'public, max-age=31536000, immutable',
