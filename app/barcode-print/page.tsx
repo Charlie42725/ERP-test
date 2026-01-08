@@ -348,82 +348,60 @@ export default function BarcodePrintPage() {
             background: #fff !important;
           }
 
-          /* 🔒 框完全貼合內容 */
+          /* 標籤框體 - 全部置中 */
           .label {
-            display: inline-flex !important;
+            display: flex !important;
             flex-direction: column !important;
-            align-items: flex-start !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
             background: #fff !important;
             color: #000 !important;
             border: 1px solid #000 !important;
-            height: auto !important;
-            min-height: unset !important;
             padding: 2mm !important;
             box-sizing: border-box !important;
             break-inside: avoid !important;
             page-break-inside: avoid !important;
           }
 
-          .label * {
-            transform: none !important;
-          }
-
-          /* 條碼 = 實體高度 */
+          /* 條碼本體置中 */
           .barcode-wrap {
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
             height: 11mm !important;
+            width: 100% !important;
             margin: 0 !important;
-            padding: 0 !important;
             line-height: 0 !important;
           }
 
-          .barcode-wrap svg,
-          .barcode-wrap canvas,
+          .barcode-img {
+            display: block !important;
+            height: 11mm !important;
+            width: auto !important;
+            margin: 0 auto !important;
+          }
+
           .barcode-wrap img {
             display: block !important;
             height: 11mm !important;
             width: auto !important;
-            margin: 0 !important;
+            margin: 0 auto !important;
           }
 
-          .label .meta {
-            display: block !important;
-            text-align: center !important;
-            width: 100% !important;
-            flex-shrink: 0 !important;
-          }
-
-          /* 底下一行資訊 */
+          /* 文字：全部同大小、置中、一行 */
           .meta-row {
-            display: flex !important;
-            align-items: baseline !important;
-            justify-content: space-between !important;
-            gap: 3mm !important;
             margin-top: 1mm !important;
             font-size: 9pt !important;
-            line-height: 1 !important;
+            font-weight: 400 !important;
+            line-height: 1.1 !important;
+            text-align: center !important;
             white-space: nowrap !important;
-            width: 100% !important;
           }
 
-          .meta-row .name {
-            flex: 1 1 auto !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-          }
-
-          .meta-row .code {
-            flex: 0 0 auto !important;
-            font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
-            font-size: 8pt !important;
-          }
-
-          .meta-row .price {
-            flex: 0 0 auto !important;
-            font-weight: 700 !important;
-          }
-
-          .label div {
-            display: block !important;
+          /* 統一所有 span 字級和粗細 */
+          .meta-row span {
+            font-size: inherit !important;
+            font-weight: inherit !important;
           }
         }
       `}</style>
