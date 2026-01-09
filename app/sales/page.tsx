@@ -26,6 +26,7 @@ type Sale = {
   note: string | null
   total: number
   status: string
+  fulfillment_status?: string | null
   created_at: string
   item_count?: number
   total_quantity?: number
@@ -164,7 +165,7 @@ export default function SalesPage() {
                     <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">平均售價</th>
                     <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">總金額</th>
                     <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">付款</th>
-                    <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">狀態</th>
+                    <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">出貨</th>
                     <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">操作</th>
                   </tr>
                 </thead>
@@ -221,18 +222,22 @@ export default function SalesPage() {
                         <td className="px-6 py-4 text-center text-sm">
                           <span
                             className={`inline-block rounded px-2 py-1 text-xs ${
-                              sale.status === 'confirmed'
+                              sale.fulfillment_status === 'completed'
                                 ? 'bg-green-100 text-green-800'
-                                : sale.status === 'cancelled'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-yellow-100 text-yellow-800'
+                                : sale.fulfillment_status === 'partial'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : sale.fulfillment_status === 'none'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-gray-100 text-gray-800'
                             }`}
                           >
-                            {sale.status === 'confirmed'
-                              ? '已確認'
-                              : sale.status === 'cancelled'
-                              ? '已取消'
-                              : '草稿'}
+                            {sale.fulfillment_status === 'completed'
+                              ? '已出貨'
+                              : sale.fulfillment_status === 'partial'
+                              ? '部分出貨'
+                              : sale.fulfillment_status === 'none'
+                              ? '未出貨'
+                              : '舊資料'}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center text-sm" onClick={(e) => e.stopPropagation()}>
