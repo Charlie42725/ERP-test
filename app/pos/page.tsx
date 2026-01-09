@@ -8,6 +8,7 @@ type CartItem = SaleItem & {
   product: Product
   ichiban_kuji_prize_id?: string
   ichiban_kuji_id?: string
+  isFreeGift?: boolean
 }
 
 type Customer = {
@@ -213,6 +214,7 @@ export default function POSPage() {
             product,
             ichiban_kuji_id: ichibanInfo.kuji_id,
             ichiban_kuji_prize_id: ichibanInfo.prize_id,
+            isFreeGift: false,
           },
         ]
       }
@@ -233,6 +235,7 @@ export default function POSPage() {
           quantity: 1,
           price: product.price,
           product,
+          isFreeGift: false,
         },
       ]
     })
@@ -271,6 +274,22 @@ export default function POSPage() {
       prev.map((item) =>
         item.product_id === productId ? { ...item, quantity } : item
       )
+    )
+  }
+
+  const toggleFreeGift = (index: number) => {
+    setCart((prev) =>
+      prev.map((item, i) => {
+        if (i === index) {
+          const isFreeGift = !item.isFreeGift
+          return {
+            ...item,
+            isFreeGift,
+            price: isFreeGift ? 0 : item.product.price,
+          }
+        }
+        return item
+      })
     )
   }
 
@@ -930,6 +949,9 @@ export default function POSPage() {
                           {hasComboDiscount && (
                             <span className="ml-2 text-xs bg-green-500 text-white px-2 py-0.5 rounded">組合優惠</span>
                           )}
+                          {cart[item.indices![0]]?.isFreeGift && (
+                            <span className="ml-2 text-xs bg-red-500 text-white px-2 py-0.5 rounded">贈品</span>
+                          )}
                         </div>
                         <div className="text-xs text-gray-600 dark:text-gray-400">
                           {hasComboDiscount && (
@@ -938,6 +960,17 @@ export default function POSPage() {
                           {formatCurrency(item.price)}
                           {isGrouped && <span className="ml-2">× {item.quantity} 抽</span>}
                         </div>
+                        {!item.ichiban_kuji_id && (
+                          <label className="flex items-center gap-1 mt-1 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={cart[item.indices![0]]?.isFreeGift || false}
+                              onChange={() => toggleFreeGift(item.indices![0])}
+                              className="w-3 h-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="text-xs text-gray-600 dark:text-gray-400">贈品</span>
+                          </label>
+                        )}
                       </div>
                     <button
                       onClick={() => {
