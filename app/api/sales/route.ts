@@ -122,9 +122,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    const { is_delivered = true, delivery_method, expected_delivery_date, delivery_note, ...saleData } = body
 
     // Validate input
-    const validation = saleDraftSchema.safeParse(body)
+    const validation = saleDraftSchema.safeParse(saleData)
     if (!validation.success) {
       const error = fromZodError(validation.error)
       return NextResponse.json(
@@ -157,6 +158,10 @@ export async function POST(request: NextRequest) {
         discount_value: draft.discount_value || 0,
         status: 'draft',
         total: 0,
+        fulfillment_status: 'none', // 初始為未履約
+        delivery_method: delivery_method || null,
+        expected_delivery_date: expected_delivery_date || null,
+        delivery_note: delivery_note || null,
       })
       .select()
       .single()
@@ -325,19 +330,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 6. Update sale to confirmed (product stock will be auto-deducted by DB trigger, AR by another trigger)
+    // 6. Update sale to confirmed（不扣庫存，改由 delivery confirmed 扣庫存）
     const { data: confirmedSale, error: confirmError } = await (supabaseServer
       .from('sales') as any)
       .update({
         total,
         status: 'confirmed',
+        fulfillment_status: is_delivered ? 'completed' : 'none',
       })
       .eq('id', sale.id)
       .select()
       .single()
 
     if (confirmError) {
-      // Rollback: restore ONLY ichiban kuji remaining (product stock will be auto-restored by DB trigger on delete)
+      // Rollback: restore ONLY ichiban kuji remaining
       for (const item of draft.items) {
         // 恢復一番賞庫存
         if (item.ichiban_kuji_prize_id) {
@@ -355,13 +361,112 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-      // Delete items and sale (product stock will be auto-restored by trigger)
+      // Delete items and sale
       await (supabaseServer.from('sale_items') as any).delete().eq('sale_id', sale.id)
       await (supabaseServer.from('sales') as any).delete().eq('id', sale.id)
       return NextResponse.json(
         { ok: false, error: confirmError.message },
         { status: 500 }
       )
+    }
+
+    // 7. 創建出貨單（使用當前最大編號 + 1 避免重複）
+    const { data: lastDelivery } = await supabaseServer
+      .from('deliveries')
+      .select('delivery_no')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    let deliveryCount = 0
+    if (lastDelivery?.delivery_no) {
+      // 從 D0001 中提取數字部分
+      const match = lastDelivery.delivery_no.match(/\d+/)
+      if (match) {
+        deliveryCount = parseInt(match[0], 10)
+      }
+    }
+
+    const deliveryNo = generateCode('D', deliveryCount)
+
+    const { data: delivery, error: deliveryError } = await (supabaseServer
+      .from('deliveries') as any)
+      .insert({
+        delivery_no: deliveryNo,
+        sale_id: sale.id,
+        status: is_delivered ? 'confirmed' : 'draft',
+        delivery_date: is_delivered ? new Date().toISOString() : null,
+        method: delivery_method || null,
+        note: delivery_note || null,
+      })
+      .select()
+      .single()
+
+    if (deliveryError) {
+      // Rollback
+      await (supabaseServer.from('sales') as any).delete().eq('id', sale.id)
+      return NextResponse.json(
+        { ok: false, error: deliveryError.message },
+        { status: 500 }
+      )
+    }
+
+    // 8. 創建出貨明細
+    const deliveryItems = draft.items.map((item) => ({
+      delivery_id: delivery.id,
+      product_id: item.product_id,
+      quantity: item.quantity,
+    }))
+
+    const { error: deliveryItemsError } = await (supabaseServer
+      .from('delivery_items') as any)
+      .insert(deliveryItems)
+
+    if (deliveryItemsError) {
+      // Rollback
+      await (supabaseServer.from('deliveries') as any).delete().eq('id', delivery.id)
+      await (supabaseServer.from('sales') as any).delete().eq('id', sale.id)
+      return NextResponse.json(
+        { ok: false, error: deliveryItemsError.message },
+        { status: 500 }
+      )
+    }
+
+    // 9. 如果是已出貨，扣庫存（唯一入口）
+    if (is_delivered) {
+      // 🔒 冪等保護
+      const { data: existingLogs } = await (supabaseServer
+        .from('inventory_logs') as any)
+        .select('id')
+        .eq('ref_type', 'delivery')
+        .eq('ref_id', delivery.id)
+        .limit(1)
+
+      if (!existingLogs || existingLogs.length === 0) {
+        // 🐛 调试日志
+        console.log('=== 开始扣库存 ===')
+        console.log('draft.items:', JSON.stringify(draft.items, null, 2))
+        console.log('delivery.id:', delivery.id)
+        
+        // 扣庫存：只寫入 inventory_logs，trigger 會自動更新 products.stock
+        for (const item of draft.items) {
+          console.log(`处理商品: ${item.product_id}, 数量: ${item.quantity}`)
+          // 只扣一般商品庫存（一番賞已在前面扣過）
+          if (!item.ichiban_kuji_prize_id) {
+            // 🔧 修复：移除手动更新 stock，让 trigger 自动处理
+            // 只寫入庫存日誌
+            await (supabaseServer
+              .from('inventory_logs') as any)
+              .insert({
+                product_id: item.product_id,
+                ref_type: 'delivery',
+                ref_id: delivery.id,
+                qty_change: -item.quantity,
+                memo: `出貨扣庫存 - ${deliveryNo}`,
+              })
+          }
+        }
+      }
     }
 
     return NextResponse.json(

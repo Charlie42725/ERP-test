@@ -48,6 +48,10 @@ export default function POSPage() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
   const [isPaid, setIsPaid] = useState(true)
+  const [isDelivered, setIsDelivered] = useState(true) // 新增：已出貨狀態
+  const [deliveryMethod, setDeliveryMethod] = useState('') // 新增：交貨方式
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('') // 新增：預計出貨日
+  const [deliveryNote, setDeliveryNote] = useState('') // 新增：出貨備註
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [note, setNote] = useState('')
@@ -455,6 +459,12 @@ export default function POSPage() {
   }
 
   const handleCheckout = async () => {
+    // 🔒 防止重複提交
+    if (loading) {
+      console.warn('Already processing checkout, ignoring duplicate request')
+      return
+    }
+
     if (cart.length === 0) {
       setError('購物車是空的')
       return
@@ -486,6 +496,10 @@ export default function POSPage() {
           source: 'pos',
           payment_method: paymentMethod,
           is_paid: isPaid,
+          is_delivered: isDelivered, // 新增：是否已出貨
+          delivery_method: !isDelivered ? deliveryMethod : undefined, // 未出貨時保存交貨方式
+          expected_delivery_date: !isDelivered ? expectedDeliveryDate : undefined, // 未出貨時保存預計出貨日
+          delivery_note: !isDelivered ? deliveryNote : undefined, // 未出貨時保存備註
           note: note || undefined,
           discount_type: discountType,
           discount_value: discountValue,
@@ -507,6 +521,10 @@ export default function POSPage() {
         setCustomerSearchQuery('')
         setPaymentMethod('cash')
         setIsPaid(true)
+        setIsDelivered(true) // 重置為已出貨
+        setDeliveryMethod('') // 清空交貨方式
+        setExpectedDeliveryDate('') // 清空預計出貨日
+        setDeliveryNote('') // 清空出貨備註
         setNote('')
         setDiscountType('none')
         setDiscountValue(0)
@@ -1368,6 +1386,55 @@ export default function POSPage() {
               />
               <span className="font-bold text-base text-black dark:text-gray-100">已收款</span>
             </label>
+          </div>
+
+          {/* Delivery Status */}
+          <div className="space-y-2">
+            <label className="block font-bold mb-1.5 text-sm text-black dark:text-gray-100">出貨狀態</label>
+            <label className="flex items-center gap-2.5 cursor-pointer border-2 border-gray-400 dark:border-gray-600 rounded-lg px-3 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-700">
+              <input
+                type="checkbox"
+                checked={isDelivered}
+                onChange={(e) => setIsDelivered(e.target.checked)}
+                className="w-5 h-5"
+              />
+              <span className="font-bold text-base text-black dark:text-gray-100">已出貨</span>
+            </label>
+
+            {/* Show delivery info when not delivered */}
+            {!isDelivered && (
+              <div className="space-y-2 mt-2 border-2 border-orange-400 dark:border-orange-600 rounded-lg p-3 bg-orange-50 dark:bg-orange-900/20">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">預計出貨日</label>
+                  <input
+                    type="date"
+                    value={expectedDeliveryDate}
+                    onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+                    className="w-full border-2 border-gray-400 dark:border-gray-600 rounded-lg px-2 py-1 text-sm text-black dark:text-gray-100 bg-white dark:bg-gray-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">交貨方式</label>
+                  <input
+                    type="text"
+                    value={deliveryMethod}
+                    onChange={(e) => setDeliveryMethod(e.target.value)}
+                    placeholder="例：宅配、自取、門市取貨"
+                    className="w-full border-2 border-gray-400 dark:border-gray-600 rounded-lg px-2 py-1 text-sm text-black dark:text-gray-100 bg-white dark:bg-gray-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">備註</label>
+                  <textarea
+                    value={deliveryNote}
+                    onChange={(e) => setDeliveryNote(e.target.value)}
+                    placeholder="出貨相關備註"
+                    rows={2}
+                    className="w-full border-2 border-gray-400 dark:border-gray-600 rounded-lg px-2 py-1 text-sm text-black dark:text-gray-100 bg-white dark:bg-gray-700 resize-none"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Checkout Button - Fixed at bottom */}
