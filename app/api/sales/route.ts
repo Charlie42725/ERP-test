@@ -371,17 +371,16 @@ export async function POST(request: NextRequest) {
     }
 
     // 7. 創建出貨單（使用當前最大編號 + 1 避免重複）
-    const { data: lastDelivery } = await supabaseServer
-      .from('deliveries')
+    const { data: lastDeliveries } = await (supabaseServer
+      .from('deliveries') as any)
       .select('delivery_no')
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
 
     let deliveryCount = 0
-    if (lastDelivery?.delivery_no) {
+    if (lastDeliveries && lastDeliveries.length > 0) {
       // 從 D0001 中提取數字部分
-      const match = lastDelivery.delivery_no.match(/\d+/)
+      const match = lastDeliveries[0].delivery_no.match(/\d+/)
       if (match) {
         deliveryCount = parseInt(match[0], 10)
       }

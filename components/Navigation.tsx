@@ -72,27 +72,27 @@ export default function Navigation() {
 
   return (
     <nav className="sticky top-0 z-50 border-b bg-white shadow-md dark:border-gray-700 dark:bg-gray-800">
-      <div className="mx-auto max-w-full px-4 lg:px-6">
-        <div className="flex h-16 items-center justify-between gap-4">
-          <div className="flex items-center gap-6 lg:gap-8">
-            <Link href="/" className="flex items-center gap-2.5 shrink-0">
+      <div className="mx-auto max-w-full px-2 sm:px-4 lg:px-6">
+        <div className="flex h-16 items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-6 lg:gap-8 min-w-0 flex-1">
+            <Link href="/" className="flex items-center gap-2 shrink-0">
               <Image
                 src="/logo.jpg"
                 alt="ToyFlow ERP Logo"
-                width={44}
-                height={44}
-                className="rounded-lg shadow-sm"
+                width={40}
+                height={40}
+                className="rounded-lg shadow-sm sm:w-11 sm:h-11"
               />
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 dark:from-blue-400 dark:to-blue-300 bg-clip-text text-transparent">失控 ERP</span>
+              <span className="hidden sm:inline text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 dark:from-blue-400 dark:to-blue-300 bg-clip-text text-transparent">失控 ERP</span>
             </Link>
 
-            {/* Desktop Navigation */}
-            <div className="hidden gap-1.5 lg:flex xl:gap-2">
+            {/* Desktop Navigation - 使用横向滚动 */}
+            <div className="hidden lg:flex gap-1 xl:gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500 pb-1">
               {filteredNavItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-200 ${
+                  className={`whitespace-nowrap rounded-lg px-2.5 xl:px-3 py-2 text-sm font-semibold transition-all duration-200 ${
                     pathname === item.href
                       ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md scale-105'
                       : 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 hover:shadow-sm'
@@ -104,10 +104,10 @@ export default function Navigation() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* User Info */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* User Info - 只在较大屏幕显示 */}
             {user && (
-              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+              <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-200">
                   {user.username}
                 </span>
@@ -121,12 +121,12 @@ export default function Navigation() {
               </div>
             )}
 
-            {/* Logout Button */}
+            {/* Logout Button - 只在较大屏幕显示 */}
             {user && (
               <button
                 onClick={handleLogout}
                 disabled={loggingOut}
-                className="hidden md:flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200 border border-red-200 dark:border-red-800 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="hidden xl:flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200 border border-red-200 dark:border-red-800 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -140,10 +140,10 @@ export default function Navigation() {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="rounded-xl p-2.5 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 lg:hidden transition-all duration-200 border border-gray-200 dark:border-gray-600 hover:shadow-md"
+              className="rounded-lg p-2 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 lg:hidden transition-all duration-200 border border-gray-200 dark:border-gray-600"
               aria-label="切換選單"
             >
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {isMenuOpen ? (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 ) : (
