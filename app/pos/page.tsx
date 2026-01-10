@@ -120,6 +120,7 @@ export default function POSPage() {
   const [ichibanKujis, setIchibanKujis] = useState<any[]>([])
   const [selectedKuji, setSelectedKuji] = useState<any | null>(null)
   const [expandedKujiId, setExpandedKujiId] = useState<string | null>(null)
+  const scanTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Quantity input modal
   const [showQuantityModal, setShowQuantityModal] = useState(false)
@@ -857,7 +858,32 @@ export default function POSPage() {
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setSearchQuery(value)
+                    
+                    // 清除上次的定时器
+                    if (scanTimeoutRef.current) {
+                      clearTimeout(scanTimeoutRef.current)
+                    }
+                    
+                    // 设置新的定时器，扫描枪通常在100ms内完成输入
+                    scanTimeoutRef.current = setTimeout(() => {
+                      if (value.trim()) {
+                        // 查找匹配的商品（精确匹配条码）
+                        const matchedProduct = products.find(
+                          p => p.barcode && p.barcode.toLowerCase() === value.toLowerCase()
+                        )
+                        
+                        if (matchedProduct) {
+                          // 自动添加到购物车
+                          addToCart(matchedProduct, 1)
+                          // 清空搜索框
+                          setSearchQuery('')
+                        }
+                      }
+                    }, 100)
+                  }}
                   placeholder="掃描條碼或搜尋商品"
                   className="w-full border-2 border-gray-400 dark:border-gray-600 rounded px-3 py-2 text-sm text-black dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-black dark:focus:border-blue-500 focus:outline-none"
                 />
@@ -903,16 +929,27 @@ export default function POSPage() {
                     const value = e.target.value
                     setSearchQuery(value)
                     
-                    // 如果输入的是条码，自动查找并展开对应的一番赏
-                    if (value.trim()) {
-                      const matchedKuji = ichibanKujis.find(
-                        kuji => kuji.barcode && kuji.barcode.toLowerCase() === value.toLowerCase()
-                      )
-                      if (matchedKuji) {
-                        setExpandedKujiId(matchedKuji.id)
-                        setSearchQuery('')  // 清空搜索框
-                      }
+                    // 清除上次的定时器
+                    if (scanTimeoutRef.current) {
+                      clearTimeout(scanTimeoutRef.current)
                     }
+                    
+                    // 设置新的定时器，扫描枪通常在100ms内完成输入
+                    scanTimeoutRef.current = setTimeout(() => {
+                      if (value.trim()) {
+                        // 查找匹配的一番赏（精确匹配条码）
+                        const matchedKuji = ichibanKujis.find(
+                          kuji => kuji.barcode && kuji.barcode.toLowerCase() === value.toLowerCase()
+                        )
+                        
+                        if (matchedKuji) {
+                          // 自动展开对应的一番赏
+                          setExpandedKujiId(matchedKuji.id)
+                          // 清空搜索框
+                          setSearchQuery('')
+                        }
+                      }
+                    }, 100)
                   }}
                   placeholder="掃描條碼或搜尋一番賞"
                   className="w-full border-2 border-gray-400 dark:border-gray-600 rounded px-3 py-2 text-sm text-black dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-teal-500 dark:focus:border-teal-400 focus:outline-none"
