@@ -888,9 +888,6 @@ export default function POSPage() {
                   className="w-full border-2 border-gray-400 dark:border-gray-600 rounded px-3 py-2 text-sm text-black dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-black dark:focus:border-blue-500 focus:outline-none"
                 />
               </div>
-              <div className="mb-3 px-2 py-1.5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded text-xs text-gray-700 dark:text-gray-300">
-                💡 <span className="font-semibold">左鍵</span>：快速加1個 | <span className="font-semibold">右鍵</span>：輸入數量
-              </div>
 
               <div className="flex-1 overflow-y-auto custom-scrollbar">
                 <div className="grid grid-cols-3 gap-2">
@@ -898,20 +895,11 @@ export default function POSPage() {
                     <button
                       key={product.id}
                       onClick={() => addToCart(product, 1)}
-                      onContextMenu={(e) => {
-                        e.preventDefault()
-                        openQuantityModal(product)
-                      }}
-                      className="bg-blue-700 hover:bg-blue-800 text-white rounded p-3 shadow hover:shadow-md transition-all active:scale-95 flex flex-col items-center justify-center min-h-[100px] border border-blue-800 relative group"
-                      title="左鍵：加1個 | 右鍵：輸入數量"
+                      className="bg-blue-700 hover:bg-blue-800 text-white rounded p-3 shadow hover:shadow-md transition-all active:scale-95 flex flex-col items-center justify-center min-h-[100px] border border-blue-800"
                     >
                       <div className="text-sm font-bold text-center mb-1 line-clamp-2">{product.name}</div>
                       <div className="text-lg font-bold">{formatCurrency(product.price)}</div>
                       <div className="text-xs mt-1">庫存: {product.stock}</div>
-                      {/* 提示标签 */}
-                      <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span className="text-xs bg-yellow-400 text-gray-900 px-1 py-0.5 rounded">右鍵輸入</span>
-                      </div>
                     </button>
                   ))}
                 </div>
@@ -1192,7 +1180,18 @@ export default function POSPage() {
                         >
                           −
                         </button>
-                        <span className="w-10 text-center font-bold text-sm text-black dark:text-gray-100">{item.quantity}</span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const newQty = parseInt(e.target.value) || 1
+                            if (newQty > 0) {
+                              updateQuantity(item.product_id, newQty)
+                            }
+                          }}
+                          className="w-14 h-7 text-center font-bold text-sm text-black dark:text-gray-100 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded"
+                        />
                         <button
                           onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
                           className="w-7 h-7 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded font-bold text-sm text-black dark:text-gray-100"
