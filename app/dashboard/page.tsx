@@ -48,16 +48,18 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [dateFrom, setDateFrom] = useState(new Date().toISOString().split('T')[0])
   const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0])
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'pos' | 'live'>('all')
 
   useEffect(() => {
     fetchDashboardData()
-  }, [dateFrom, dateTo])
+  }, [dateFrom, dateTo, sourceFilter])
 
   const fetchDashboardData = async () => {
     setLoading(true)
     try {
       // Fetch sales within date range
-      const salesRes = await fetch(`/api/sales?date_from=${dateFrom}&date_to=${dateTo}`)
+      const sourceParam = sourceFilter !== 'all' ? `&source=${sourceFilter}` : ''
+      const salesRes = await fetch(`/api/sales?date_from=${dateFrom}&date_to=${dateTo}${sourceParam}`)
       const salesData = await salesRes.json()
       const salesInRange = salesData.ok ? salesData.data : []
       const totalSales = salesInRange
@@ -184,7 +186,7 @@ export default function DashboardPage() {
 
         {/* Date Filter */}
         <div className="mb-6 rounded-lg bg-white dark:bg-gray-800 p-4 shadow">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-100">
                 起始日期
@@ -193,7 +195,7 @@ export default function DashboardPage() {
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none"
               />
             </div>
             <div>
@@ -204,8 +206,45 @@ export default function DashboardPage() {
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none"
               />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-100">
+                銷售通路
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSourceFilter('all')}
+                  className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${
+                    sourceFilter === 'all'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  全部
+                </button>
+                <button
+                  onClick={() => setSourceFilter('pos')}
+                  className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${
+                    sourceFilter === 'pos'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  🏪 店裡
+                </button>
+                <button
+                  onClick={() => setSourceFilter('live')}
+                  className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${
+                    sourceFilter === 'live'
+                      ? 'bg-pink-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  📱 直播
+                </button>
+              </div>
             </div>
           </div>
         </div>

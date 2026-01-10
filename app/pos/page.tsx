@@ -139,6 +139,11 @@ export default function POSPage() {
     fetchTodaySales()
   }, [])
 
+  // Refetch today's sales when sales mode changes
+  useEffect(() => {
+    fetchTodaySales()
+  }, [salesMode])
+
   // Close customer dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -207,7 +212,7 @@ export default function POSPage() {
   const fetchTodaySales = async () => {
     try {
       const today = new Date().toISOString().split('T')[0]
-      const res = await fetch(`/api/sales?date_from=${today}&date_to=${today}&source=pos`)
+      const res = await fetch(`/api/sales?date_from=${today}&date_to=${today}&source=${salesMode}`)
       const data = await res.json()
       if (data.ok) {
         setTodaySales(data.data || [])
@@ -568,7 +573,7 @@ export default function POSPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customer_code: selectedCustomer?.customer_code || undefined,
-          source: 'pos',
+          source: salesMode,
           payment_method: paymentMethod,
           is_paid: isPaid,
           is_delivered: isDelivered, // 新增：是否已出貨
@@ -810,12 +815,64 @@ export default function POSPage() {
       <style dangerouslySetInnerHTML={{ __html: scrollbarStyles }} />
       <div className="h-screen bg-gray-100 dark:bg-gray-900 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-white dark:bg-gray-800 border-b-2 border-gray-300 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-black dark:text-gray-100">POS 收銀系統</h1>
+        <div className={`border-b-2 border-gray-300 dark:border-gray-700 px-6 py-4 flex items-center justify-between ${
+          salesMode === 'live'
+            ? 'bg-purple-600 dark:bg-purple-800'
+            : 'bg-white dark:bg-gray-800'
+        }`}>
+        <div className="flex items-center gap-4">
+          <h1 className={`text-2xl font-bold ${
+            salesMode === 'live' ? 'text-white' : 'text-black dark:text-gray-100'
+          }`}>
+            POS 收銀系統
+          </h1>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                // Warn if cart is not empty
+                if (cart.length > 0 && salesMode !== 'pos') {
+                  const confirmed = confirm('切換模式後購物車會保留，請確認訂單應屬於哪個通路。\n\n確定要切換到「店裡模式」嗎？')
+                  if (!confirmed) return
+                }
+                setSalesMode('pos')
+              }}
+              className={`px-4 py-2 rounded-lg font-bold border-2 transition-all ${
+                salesMode === 'pos'
+                  ? 'bg-blue-600 border-blue-800 text-white shadow-md'
+                  : salesMode === 'live'
+                    ? 'bg-purple-400 border-purple-300 text-purple-900 hover:bg-purple-300'
+                    : 'bg-gray-200 dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+              }`}
+            >
+              🏪 店裡模式
+            </button>
+            <button
+              onClick={() => {
+                // Warn if cart is not empty
+                if (cart.length > 0 && salesMode !== 'live') {
+                  const confirmed = confirm('切換模式後購物車會保留，請確認訂單應屬於哪個通路。\n\n確定要切換到「直播模式」嗎？')
+                  if (!confirmed) return
+                }
+                setSalesMode('live')
+              }}
+              className={`px-4 py-2 rounded-lg font-bold border-2 transition-all ${
+                salesMode === 'live'
+                  ? 'bg-pink-600 border-pink-800 text-white shadow-md'
+                  : 'bg-gray-200 dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+              }`}
+            >
+              📱 直播模式
+            </button>
+          </div>
+        </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowDrafts(!showDrafts)}
-            className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-2 rounded-lg transition-all relative"
+            className={`font-bold px-4 py-2 rounded-lg transition-all relative ${
+              salesMode === 'live'
+                ? 'bg-purple-400 hover:bg-purple-300 text-purple-900'
+                : 'bg-orange-600 hover:bg-orange-700 text-white'
+            }`}
           >
             暫存訂單
             {drafts.length > 0 && (
@@ -826,11 +883,19 @@ export default function POSPage() {
           </button>
           <button
             onClick={() => setShowTodaySales(!showTodaySales)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-lg transition-all"
+            className={`font-bold px-4 py-2 rounded-lg transition-all ${
+              salesMode === 'live'
+                ? 'bg-purple-400 hover:bg-purple-300 text-purple-900'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
           >
             今日交易
           </button>
-          <div className="text-sm text-black dark:text-gray-300">{new Date().toLocaleString('zh-TW')}</div>
+          <div className={`text-sm ${
+            salesMode === 'live' ? 'text-white' : 'text-black dark:text-gray-300'
+          }`}>
+            {new Date().toLocaleString('zh-TW')}
+          </div>
         </div>
       </div>
 
@@ -1729,8 +1794,12 @@ export default function POSPage() {
       {showTodaySales && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowTodaySales(false)}>
           <div className="bg-white dark:bg-gray-800 w-[600px] max-h-[80vh] rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-blue-500 text-white px-6 py-4 rounded-t-lg flex items-center justify-between">
-              <h2 className="text-xl font-bold">今日交易</h2>
+            <div className={`text-white px-6 py-4 rounded-t-lg flex items-center justify-between ${
+              salesMode === 'live' ? 'bg-pink-600' : 'bg-blue-500'
+            }`}>
+              <h2 className="text-xl font-bold">
+                今日交易 - {salesMode === 'live' ? '📱 直播模式' : '🏪 店裡模式'}
+              </h2>
               <button onClick={() => setShowTodaySales(false)} className="text-2xl hover:text-gray-200">×</button>
             </div>
             <div className="p-4 overflow-y-auto custom-scrollbar max-h-[calc(80vh-80px)]">

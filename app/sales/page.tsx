@@ -57,6 +57,7 @@ export default function SalesPage() {
   const [delivering, setDelivering] = useState<string | null>(null)
   const [showUndeliveredOnly, setShowUndeliveredOnly] = useState(false)
   const [groupByCustomer, setGroupByCustomer] = useState(false)
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'pos' | 'live'>('all')
 
   const toggleCustomer = (customerKey: string) => {
     const newExpanded = new Set(expandedCustomers)
@@ -84,6 +85,7 @@ export default function SalesPage() {
       const params = new URLSearchParams()
       if (keyword) params.set('keyword', keyword)
       if (productKeyword) params.set('product_keyword', productKeyword)
+      if (sourceFilter !== 'all') params.set('source', sourceFilter)
 
       const res = await fetch(`/api/sales?${params}`)
       const data = await res.json()
@@ -149,7 +151,7 @@ export default function SalesPage() {
 
   useEffect(() => {
     fetchSales()
-  }, [showUndeliveredOnly, groupByCustomer])
+  }, [showUndeliveredOnly, groupByCustomer, sourceFilter])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -242,25 +244,67 @@ export default function SalesPage() {
                 搜尋
               </button>
             </div>
-            <div className="flex gap-4 items-center">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={groupByCustomer}
-                  onChange={(e) => setGroupByCustomer(e.target.checked)}
-                  className="h-4 w-4"
-                />
-                <span className="text-sm text-gray-900 dark:text-gray-100">按客戶分組</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showUndeliveredOnly}
-                  onChange={(e) => setShowUndeliveredOnly(e.target.checked)}
-                  className="h-4 w-4"
-                />
-                <span className="text-sm text-gray-900 dark:text-gray-100">顯示未出貨</span>
-              </label>
+            <div className="space-y-3">
+              <div className="flex gap-4 items-center">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={groupByCustomer}
+                    onChange={(e) => setGroupByCustomer(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <span className="text-sm text-gray-900 dark:text-gray-100">按客戶分組</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showUndeliveredOnly}
+                    onChange={(e) => setShowUndeliveredOnly(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <span className="text-sm text-gray-900 dark:text-gray-100">顯示未出貨</span>
+                </label>
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-900 dark:text-gray-100">
+                  銷售通路
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSourceFilter('all')}
+                    className={`flex-1 rounded px-4 py-2 text-sm font-medium transition-colors ${
+                      sourceFilter === 'all'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    全部
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSourceFilter('pos')}
+                    className={`flex-1 rounded px-4 py-2 text-sm font-medium transition-colors ${
+                      sourceFilter === 'pos'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    🏪 店裡
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSourceFilter('live')}
+                    className={`flex-1 rounded px-4 py-2 text-sm font-medium transition-colors ${
+                      sourceFilter === 'live'
+                        ? 'bg-pink-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    📱 直播
+                  </button>
+                </div>
+              </div>
             </div>
           </form>
         </div>
