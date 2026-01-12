@@ -155,9 +155,9 @@ export default function POSPage() {
     fetchClosingStats() // 先獲取結帳統計，包含 lastClosingTime
   }, [])
 
-  // Refetch today's sales when sales mode changes
+  // Refetch today's sales and closing stats when sales mode changes
   useEffect(() => {
-    fetchTodaySales()
+    fetchClosingStats() // 重新獲取日結統計（會自動獲取今日銷售）
   }, [salesMode])
 
   // Close customer dropdown when clicking outside
@@ -227,7 +227,7 @@ export default function POSPage() {
 
   const fetchClosingStats = async () => {
     try {
-      const res = await fetch('/api/business-day-closing')
+      const res = await fetch(`/api/business-day-closing?source=${salesMode}`)
       const data = await res.json()
       if (data.ok) {
         setLastClosingTime(data.data.last_closing_time)
@@ -265,7 +265,7 @@ export default function POSPage() {
       const res = await fetch('/api/business-day-closing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ note: closingNote }),
+        body: JSON.stringify({ note: closingNote, source: salesMode }),
       })
 
       const data = await res.json()

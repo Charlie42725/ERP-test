@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       .gte('created_at', lastClosingTime)
       .eq('source', source)
       .eq('status', 'confirmed')
-      .gt('total', 0)  // 排除金額為 0 的訂單
+      // 包含金額為 0 的訂單（例如：促銷、贈品等）
 
     console.log('[日結 GET] 查詢參數:', { source, lastClosingTime })
     console.log('[日結 GET] 找到的銷售:', sales)
