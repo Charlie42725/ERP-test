@@ -43,13 +43,12 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // 2. 計算當日銷售統計（按來源篩選）
+    // 2. 計算當日銷售統計（按來源篩選，包含未收款訂單）
     const { data: sales, error: salesError } = await (supabaseServer
       .from('sales') as any)
       .select('total, payment_method, account_id, is_paid, source, sale_no, created_at')
       .gte('created_at', lastClosingTime)
       .eq('source', source)
-      .eq('is_paid', true)
       .eq('status', 'confirmed')
       .gt('total', 0)  // 排除金額為 0 的訂單
 
@@ -64,21 +63,41 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // 3. 統計各種付款方式
+    // 3. 統計各種付款方式（區分已收款和未收款）
     const stats = {
       sales_count: sales?.length || 0,
+
+      // 總計（包含未收款）
       total_sales: 0,
       total_cash: 0,
       total_card: 0,
       total_transfer: 0,
       total_cod: 0,
+
+      // 已收款統計
+      paid_count: 0,
+      paid_sales: 0,
+      paid_cash: 0,
+      paid_card: 0,
+      paid_transfer: 0,
+      paid_cod: 0,
+
+      // 未收款統計
+      unpaid_count: 0,
+      unpaid_sales: 0,
+      unpaid_cash: 0,
+      unpaid_card: 0,
+      unpaid_transfer: 0,
+      unpaid_cod: 0,
+
       sales_by_account: {} as { [key: string]: number },
     }
 
     sales?.forEach((sale: any) => {
+      // 總計統計
       stats.total_sales += sale.total
 
-      // 按付款方式分類
+      // 按付款方式分類（總計）
       if (sale.payment_method === 'cash') {
         stats.total_cash += sale.total
       } else if (sale.payment_method === 'card') {
@@ -89,10 +108,39 @@ export async function GET(request: NextRequest) {
         stats.total_transfer += sale.total
       }
 
-      // 按帳戶統計
-      if (sale.account_id) {
-        stats.sales_by_account[sale.account_id] =
-          (stats.sales_by_account[sale.account_id] || 0) + sale.total
+      // 區分已收款和未收款
+      if (sale.is_paid) {
+        stats.paid_count += 1
+        stats.paid_sales += sale.total
+
+        if (sale.payment_method === 'cash') {
+          stats.paid_cash += sale.total
+        } else if (sale.payment_method === 'card') {
+          stats.paid_card += sale.total
+        } else if (sale.payment_method === 'cod') {
+          stats.paid_cod += sale.total
+        } else if (sale.payment_method.startsWith('transfer_')) {
+          stats.paid_transfer += sale.total
+        }
+
+        // 按帳戶統計（僅已收款）
+        if (sale.account_id) {
+          stats.sales_by_account[sale.account_id] =
+            (stats.sales_by_account[sale.account_id] || 0) + sale.total
+        }
+      } else {
+        stats.unpaid_count += 1
+        stats.unpaid_sales += sale.total
+
+        if (sale.payment_method === 'cash') {
+          stats.unpaid_cash += sale.total
+        } else if (sale.payment_method === 'card') {
+          stats.unpaid_card += sale.total
+        } else if (sale.payment_method === 'cod') {
+          stats.unpaid_cod += sale.total
+        } else if (sale.payment_method.startsWith('transfer_')) {
+          stats.unpaid_transfer += sale.total
+        }
       }
     })
 
@@ -147,13 +195,12 @@ export async function POST(request: NextRequest) {
       lastClosingTime = utcMidnight.toISOString()
     }
 
-    // 2. 計算當日銷售統計（按來源篩選）
+    // 2. 計算當日銷售統計（按來源篩選，包含未收款訂單）
     const { data: sales, error: salesError } = await (supabaseServer
       .from('sales') as any)
       .select('total, payment_method, account_id, is_paid, source, sale_no, created_at')
       .gte('created_at', lastClosingTime)
       .eq('source', source)
-      .eq('is_paid', true)
       .eq('status', 'confirmed')
       .gt('total', 0)  // 排除金額為 0 的訂單
 
@@ -168,20 +215,37 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 3. 統計各種付款方式
+    // 3. 統計各種付款方式（區分已收款和未收款）
     const stats = {
       sales_count: sales?.length || 0,
+
+      // 總計（包含未收款）
       total_sales: 0,
       total_cash: 0,
       total_card: 0,
       total_transfer: 0,
       total_cod: 0,
+
+      // 已收款統計
+      paid_count: 0,
+      paid_sales: 0,
+      paid_cash: 0,
+      paid_card: 0,
+      paid_transfer: 0,
+      paid_cod: 0,
+
+      // 未收款統計
+      unpaid_count: 0,
+      unpaid_sales: 0,
+
       sales_by_account: {} as { [key: string]: number },
     }
 
     sales?.forEach((sale: any) => {
+      // 總計統計
       stats.total_sales += sale.total
 
+      // 按付款方式分類（總計）
       if (sale.payment_method === 'cash') {
         stats.total_cash += sale.total
       } else if (sale.payment_method === 'card') {
@@ -192,9 +256,29 @@ export async function POST(request: NextRequest) {
         stats.total_transfer += sale.total
       }
 
-      if (sale.account_id) {
-        stats.sales_by_account[sale.account_id] =
-          (stats.sales_by_account[sale.account_id] || 0) + sale.total
+      // 區分已收款和未收款
+      if (sale.is_paid) {
+        stats.paid_count += 1
+        stats.paid_sales += sale.total
+
+        if (sale.payment_method === 'cash') {
+          stats.paid_cash += sale.total
+        } else if (sale.payment_method === 'card') {
+          stats.paid_card += sale.total
+        } else if (sale.payment_method === 'cod') {
+          stats.paid_cod += sale.total
+        } else if (sale.payment_method.startsWith('transfer_')) {
+          stats.paid_transfer += sale.total
+        }
+
+        // 按帳戶統計（僅已收款）
+        if (sale.account_id) {
+          stats.sales_by_account[sale.account_id] =
+            (stats.sales_by_account[sale.account_id] || 0) + sale.total
+        }
+      } else {
+        stats.unpaid_count += 1
+        stats.unpaid_sales += sale.total
       }
     })
 
@@ -210,6 +294,16 @@ export async function POST(request: NextRequest) {
         total_card: stats.total_card,
         total_transfer: stats.total_transfer,
         total_cod: stats.total_cod,
+        // 已收款統計
+        paid_count: stats.paid_count,
+        paid_sales: stats.paid_sales,
+        paid_cash: stats.paid_cash,
+        paid_card: stats.paid_card,
+        paid_transfer: stats.paid_transfer,
+        paid_cod: stats.paid_cod,
+        // 未收款統計
+        unpaid_count: stats.unpaid_count,
+        unpaid_sales: stats.unpaid_sales,
         sales_by_account: stats.sales_by_account,
         note: note || null,
       })

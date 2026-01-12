@@ -2111,7 +2111,7 @@ export default function POSPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
                   <div className="text-sm font-medium text-blue-800 dark:text-blue-400 mb-1">
-                    銷售筆數
+                    總銷售筆數
                   </div>
                   <div className="text-2xl font-bold text-blue-600 dark:text-blue-300">
                     {closingStats.sales_count} 筆
@@ -2127,32 +2127,58 @@ export default function POSPage() {
                 </div>
               </div>
 
-              {/* 收款明細 */}
+              {/* 已收款 vs 未收款 */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-4 border-2 border-emerald-200 dark:border-emerald-700">
+                  <div className="text-sm font-medium text-emerald-800 dark:text-emerald-400 mb-1">
+                    ✅ 已收款
+                  </div>
+                  <div className="text-xl font-bold text-emerald-600 dark:text-emerald-300">
+                    {formatCurrency(closingStats.paid_sales || 0)}
+                  </div>
+                  <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                    {closingStats.paid_count || 0} 筆
+                  </div>
+                </div>
+                <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4 border-2 border-orange-200 dark:border-orange-700">
+                  <div className="text-sm font-medium text-orange-800 dark:text-orange-400 mb-1">
+                    ⏳ 未收款
+                  </div>
+                  <div className="text-xl font-bold text-orange-600 dark:text-orange-300">
+                    {formatCurrency(closingStats.unpaid_sales || 0)}
+                  </div>
+                  <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                    {closingStats.unpaid_count || 0} 筆
+                  </div>
+                </div>
+              </div>
+
+              {/* 已收款明細 */}
               <div className="border-t dark:border-gray-700 pt-4">
-                <h3 className="font-semibold text-lg mb-3 text-gray-900 dark:text-gray-100">收款明細</h3>
+                <h3 className="font-semibold text-lg mb-3 text-gray-900 dark:text-gray-100">✅ 已收款明細</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 rounded px-4 py-2">
-                    <span className="text-gray-700 dark:text-gray-300">現金</span>
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      {formatCurrency(closingStats.total_cash)}
+                  <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 rounded px-4 py-2 border border-emerald-200 dark:border-emerald-700">
+                    <span className="text-emerald-700 dark:text-emerald-300">現金</span>
+                    <span className="font-semibold text-emerald-900 dark:text-emerald-100">
+                      {formatCurrency(closingStats.paid_cash || 0)}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 rounded px-4 py-2">
-                    <span className="text-gray-700 dark:text-gray-300">刷卡</span>
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      {formatCurrency(closingStats.total_card)}
+                  <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 rounded px-4 py-2 border border-emerald-200 dark:border-emerald-700">
+                    <span className="text-emerald-700 dark:text-emerald-300">刷卡</span>
+                    <span className="font-semibold text-emerald-900 dark:text-emerald-100">
+                      {formatCurrency(closingStats.paid_card || 0)}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 rounded px-4 py-2">
-                    <span className="text-gray-700 dark:text-gray-300">轉帳</span>
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      {formatCurrency(closingStats.total_transfer)}
+                  <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 rounded px-4 py-2 border border-emerald-200 dark:border-emerald-700">
+                    <span className="text-emerald-700 dark:text-emerald-300">轉帳</span>
+                    <span className="font-semibold text-emerald-900 dark:text-emerald-100">
+                      {formatCurrency(closingStats.paid_transfer || 0)}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 rounded px-4 py-2">
-                    <span className="text-gray-700 dark:text-gray-300">貨到付款</span>
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      {formatCurrency(closingStats.total_cod)}
+                  <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 rounded px-4 py-2 border border-emerald-200 dark:border-emerald-700">
+                    <span className="text-emerald-700 dark:text-emerald-300">貨到付款</span>
+                    <span className="font-semibold text-emerald-900 dark:text-emerald-100">
+                      {formatCurrency(closingStats.paid_cod || 0)}
                     </span>
                   </div>
                 </div>
