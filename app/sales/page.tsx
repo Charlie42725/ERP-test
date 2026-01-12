@@ -46,6 +46,19 @@ type CustomerGroup = {
   pending_count: number
 }
 
+type ProductStats = {
+  product_name: string
+  item_code: string
+  total_quantity: number
+  total_sales: number
+  customer_purchases: {
+    customer_name: string
+    customer_code: string | null
+    quantity: number
+    sales_count: number
+  }[]
+}
+
 export default function SalesPage() {
   const [customerGroups, setCustomerGroups] = useState<CustomerGroup[]>([])
   const [loading, setLoading] = useState(true)
@@ -62,6 +75,7 @@ export default function SalesPage() {
   const itemsPerPage = 50
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
   const [batchDelivering, setBatchDelivering] = useState(false)
+  const [productStats, setProductStats] = useState<ProductStats | null>(null)
 
   const toggleCustomer = (customerKey: string) => {
     const newExpanded = new Set(expandedCustomers)
@@ -96,6 +110,62 @@ export default function SalesPage() {
       const data = await res.json()
       if (data.ok) {
         const allSales = data.data || []
+        
+        // 計算商品統計（只在有商品關鍵字時）
+        if (productKeyword && allSales.length > 0) {
+          const stats: { [key: string]: ProductStats } = {}
+          const customerMap: { [productKey: string]: { [customerKey: string]: { customer_name: string, customer_code: string | null, quantity: number, sales_count: number } } } = {}
+          
+          allSales.forEach((sale: Sale) => {
+            if (sale.sale_items) {
+              sale.sale_items.forEach((item: SaleItem) => {
+                const productKey = `${item.product_id}`
+                const customerKey = sale.customer_code || 'WALK_IN'
+                const customerName = sale.customer_code ? (sale.customers?.customer_name || sale.customer_code) : '散客'
+                
+                // 初始化商品統計
+                if (!stats[productKey]) {
+                  stats[productKey] = {
+                    product_name: item.snapshot_name,
+                    item_code: item.products.item_code,
+                    total_quantity: 0,
+                    total_sales: 0,
+                    customer_purchases: []
+                  }
+                  customerMap[productKey] = {}
+                }
+                
+                // 累加總數量和總銷售額
+                stats[productKey].total_quantity += item.quantity
+                stats[productKey].total_sales += item.quantity * item.price
+                
+                // 累加客戶購買記錄
+                if (!customerMap[productKey][customerKey]) {
+                  customerMap[productKey][customerKey] = {
+                    customer_name: customerName,
+                    customer_code: sale.customer_code,
+                    quantity: 0,
+                    sales_count: 0
+                  }
+                }
+                customerMap[productKey][customerKey].quantity += item.quantity
+                customerMap[productKey][customerKey].sales_count += 1
+              })
+            }
+          })
+          
+          // 轉換客戶購買記錄為陣列並排序
+          Object.keys(stats).forEach(productKey => {
+            stats[productKey].customer_purchases = Object.values(customerMap[productKey])
+              .sort((a, b) => b.quantity - a.quantity)
+          })
+          
+          // 取第一個商品的統計（如果搜尋結果有多個商品，顯示第一個）
+          const firstProduct = Object.values(stats)[0]
+          setProductStats(firstProduct || null)
+        } else {
+          setProductStats(null)
+        }
         
         if (groupByCustomer) {
           // 按客戶分組
@@ -385,6 +455,68 @@ export default function SalesPage() {
             </div>
           </form>
         </div>
+
+        {/* 商品統計卡片 */}
+        {productStats && (
+          <div className="rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 shadow-lg border border-blue-200 dark:border-blue-800">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+                📊 商品銷售統計
+              </h3>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                {productStats.item_code} - {productStats.product_name}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">總銷售數量</div>
+                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                  {productStats.total_quantity}
+                </div>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">總銷售額</div>
+                <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                  {formatCurrency(productStats.total_sales)}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                購買客戶明細（共 {productStats.customer_purchases.length} 位）
+              </h4>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {productStats.customer_purchases.map((customer, index) => (
+                  <div 
+                    key={`${customer.customer_code || 'WALK_IN'}-${index}`}
+                    className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm"
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900 dark:text-gray-100">
+                        {customer.customer_name}
+                      </div>
+                      {customer.customer_code && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {customer.customer_code}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                        {customer.quantity} 個
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {customer.sales_count} 筆訂單
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="rounded-lg bg-white dark:bg-gray-800 shadow">
           {loading ? (
