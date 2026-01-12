@@ -615,6 +615,38 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 10. 自動創建應收帳款（AR）記錄 - 如果客戶未付款
+    if (draft.customer_code && !draft.is_paid) {
+      // 計算每個商品的到期日（預設 7 天後）
+      const dueDate = new Date(taiwanTime)
+      dueDate.setDate(dueDate.getDate() + 7)
+      const dueDateStr = dueDate.toISOString().split('T')[0]
+
+      // 為每個銷售明細創建 AR 記錄
+      const arRecords = insertedSaleItems.map((saleItem: any) => ({
+        partner_type: 'customer',
+        partner_code: draft.customer_code,
+        direction: 'AR',
+        ref_type: 'sale',
+        ref_id: sale.id,
+        sale_item_id: saleItem.id,
+        amount: saleItem.subtotal,
+        received_paid: 0,
+        due_date: dueDateStr,
+        status: 'unpaid',
+        note: `銷售單 ${saleNo}`,
+      }))
+
+      const { error: arError } = await (supabaseServer
+        .from('partner_accounts') as any)
+        .insert(arRecords)
+
+      if (arError) {
+        console.error('Failed to create AR records:', arError)
+        // AR 創建失敗不影響銷售流程，只記錄錯誤
+      }
+    }
+
     return NextResponse.json(
       { ok: true, data: confirmedSale },
       { status: 201 }
