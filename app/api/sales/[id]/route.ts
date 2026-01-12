@@ -299,7 +299,42 @@ export async function DELETE(
       }
     }
 
-    // 3. Delete related partner accounts (AR)
+    // 3. Delete account transaction and restore account balance
+    const { data: accountTransaction } = await (supabaseServer
+      .from('account_transactions') as any)
+      .select('account_id, amount')
+      .eq('ref_type', 'sale')
+      .eq('ref_id', id)
+      .single()
+
+    if (accountTransaction) {
+      // 获取当前账户余额
+      const { data: account } = await (supabaseServer
+        .from('accounts') as any)
+        .select('balance')
+        .eq('id', accountTransaction.account_id)
+        .single()
+
+      if (account) {
+        // 减去这笔销售的金额（因为是收入，所以要减去）
+        const newBalance = account.balance - accountTransaction.amount
+
+        // 更新账户余额
+        await (supabaseServer
+          .from('accounts') as any)
+          .update({ balance: newBalance })
+          .eq('id', accountTransaction.account_id)
+      }
+
+      // 删除账户交易记录
+      await (supabaseServer
+        .from('account_transactions') as any)
+        .delete()
+        .eq('ref_type', 'sale')
+        .eq('ref_id', id)
+    }
+
+    // 4. Delete related partner accounts (AR)
     const { error: arDeleteError } = await (supabaseServer
       .from('partner_accounts') as any)
       .delete()
@@ -313,10 +348,10 @@ export async function DELETE(
       )
     }
 
-    // 4. Delete sale items
+    // 5. Delete sale items
     await (supabaseServer.from('sale_items') as any).delete().eq('sale_id', id)
 
-    // 5. Delete sale
+    // 6. Delete sale
     const { error: deleteError } = await (supabaseServer
       .from('sales') as any)
       .delete()
