@@ -397,47 +397,52 @@ export default function SalesPage() {
                                   </td>
                                   <td className="py-2 text-center text-sm">
                                     <span
-                                      className={`inline-block rounded px-2 py-1 text-xs ${
+                                      className={`inline-flex items-center gap-1 text-xs ${
                                         sale.is_paid
-                                          ? 'bg-green-100 text-green-800'
-                                          : 'bg-yellow-100 text-yellow-800'
+                                          ? 'text-green-600 dark:text-green-400'
+                                          : 'text-gray-500 dark:text-gray-400'
                                       }`}
                                     >
-                                      {sale.is_paid ? '已收' : '未收'}
+                                      {sale.is_paid ? '✓ 已收' : '○ 未收'}
                                     </span>
                                   </td>
                                   <td className="py-2 text-center text-sm">
                                     <span
-                                      className={`inline-block rounded px-2 py-1 text-xs ${
+                                      className={`inline-flex items-center gap-1 text-xs ${
                                         sale.fulfillment_status === 'completed'
-                                          ? 'bg-green-100 text-green-800'
+                                          ? 'text-blue-600 dark:text-blue-400'
                                           : sale.fulfillment_status === 'partial'
-                                          ? 'bg-yellow-100 text-yellow-800'
+                                          ? 'text-amber-600 dark:text-amber-400'
                                           : sale.fulfillment_status === 'none'
-                                          ? 'bg-blue-100 text-blue-800'
-                                          : 'bg-gray-100 text-gray-800'
+                                          ? 'text-gray-500 dark:text-gray-400'
+                                          : 'text-gray-400'
                                       }`}
                                     >
                                       {sale.fulfillment_status === 'completed'
-                                        ? '已出貨'
+                                        ? '🚚 已出貨'
                                         : sale.fulfillment_status === 'partial'
-                                        ? '部分出貨'
+                                        ? '⚡ 部分出貨'
                                         : sale.fulfillment_status === 'none'
-                                        ? '未出貨'
-                                        : '舊資料'}
+                                        ? '• 未出貨'
+                                        : '? 舊資料'}
                                     </span>
                                   </td>
                                   <td className="py-2 text-center text-sm">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleDelete(sale.id, sale.sale_no)
-                                      }}
-                                      disabled={deleting === sale.id}
-                                      className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:bg-gray-400"
-                                    >
-                                      {deleting === sale.id ? '刪除中...' : '刪除'}
-                                    </button>
+                                    <div className="relative inline-block">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          if (confirm(`確定要作廢銷售單 ${sale.sale_no} 嗎？\n\n此操作將會回補庫存，且無法復原。`)) {
+                                            handleDelete(sale.id, sale.sale_no)
+                                          }
+                                        }}
+                                        disabled={deleting === sale.id}
+                                        className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-lg font-bold disabled:opacity-50"
+                                        title="更多操作"
+                                      >
+                                        {deleting === sale.id ? '...' : '⋯'}
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
                                 {expandedSales.has(sale.id) && sale.sale_items && (
@@ -517,12 +522,10 @@ export default function SalesPage() {
                   <tr>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">銷售單號</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">客戶</th>
+                    <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">總金額</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">商品摘要</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">付款方式</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">銷售日期</th>
-                    <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">商品數</th>
-                    <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">總數量</th>
-                    <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">平均售價</th>
-                    <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">總金額</th>
                     <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">付款</th>
                     <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">出貨</th>
                     <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">操作</th>
@@ -537,12 +540,12 @@ export default function SalesPage() {
                       >
                         <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
                           <div className="flex items-center gap-2">
-                            <span className="text-blue-600">
-                              {expandedSales.has(sale.id) ? '▼' : '▶'}
+                            <span className="text-gray-400 text-xs">
+                              {expandedSales.has(sale.id) ? '▾' : '▸'}
                             </span>
                             {sale.sale_no}
                             {sale.note && sale.note.trim() !== '' && (
-                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded" title={sale.note}>
+                              <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded" title={sale.note}>
                                 備註
                               </span>
                             )}
@@ -551,68 +554,71 @@ export default function SalesPage() {
                         <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                           {sale.customers?.customer_name || '散客'}
                         </td>
+                        <td className={`px-6 py-4 text-right text-lg font-semibold ${
+                          sale.total > 0 
+                            ? 'text-gray-900 dark:text-gray-100' 
+                            : 'text-gray-400 dark:text-gray-500'
+                        }`}>
+                          {formatCurrency(sale.total)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                          {sale.item_count || 0} 項 / {sale.total_quantity || 0} 件
+                        </td>
                         <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                           {formatPaymentMethod(sale.payment_method)}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{formatDateTime(sale.created_at)}</td>
-                        <td className="px-6 py-4 text-right text-sm text-gray-900 dark:text-gray-100">
-                          {sale.item_count || 0} 項
-                        </td>
-                        <td className="px-6 py-4 text-right text-sm text-gray-900 dark:text-gray-100">
-                          {sale.total_quantity || 0}
-                        </td>
-                        <td className="px-6 py-4 text-right text-sm text-gray-900 dark:text-gray-100">
-                          {formatCurrency(sale.avg_price || 0)}
-                        </td>
-                        <td className="px-6 py-4 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
-                          {formatCurrency(sale.total)}
-                        </td>
                         <td className="px-6 py-4 text-center text-sm">
                           <span
-                            className={`inline-block rounded px-2 py-1 text-xs ${
+                            className={`inline-flex items-center gap-1 text-xs ${
                               sale.is_paid
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-yellow-100 text-yellow-800'
+                                ? 'text-green-600 dark:text-green-400'
+                                : 'text-gray-500 dark:text-gray-400'
                             }`}
                           >
-                            {sale.is_paid ? '已收' : '未收'}
+                            {sale.is_paid ? '✓ 已收' : '○ 未收'}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center text-sm">
                           <span
-                            className={`inline-block rounded px-2 py-1 text-xs ${
+                            className={`inline-flex items-center gap-1 text-xs ${
                               sale.fulfillment_status === 'completed'
-                                ? 'bg-green-100 text-green-800'
+                                ? 'text-blue-600 dark:text-blue-400'
                                 : sale.fulfillment_status === 'partial'
-                                ? 'bg-yellow-100 text-yellow-800'
+                                ? 'text-amber-600 dark:text-amber-400'
                                 : sale.fulfillment_status === 'none'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-gray-100 text-gray-800'
+                                ? 'text-gray-500 dark:text-gray-400'
+                                : 'text-gray-400'
                             }`}
                           >
                             {sale.fulfillment_status === 'completed'
-                              ? '已出貨'
+                              ? '🚚 已出貨'
                               : sale.fulfillment_status === 'partial'
-                              ? '部分出貨'
+                              ? '⚡ 部分出貨'
                               : sale.fulfillment_status === 'none'
-                              ? '未出貨'
-                              : '舊資料'}
+                              ? '• 未出貨'
+                              : '? 舊資料'}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center text-sm" onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={() => handleDelete(sale.id, sale.sale_no)}
+                            onClick={() => {
+                              if (confirm(`確定要作廢銷售單 ${sale.sale_no} 嗎？\n\n此操作將會回補庫存，且無法復原。`)) {
+                                handleDelete(sale.id, sale.sale_no)
+                              }
+                            }}
                             disabled={deleting === sale.id}
-                            className="rounded bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-lg font-bold disabled:opacity-50"
+                            title="更多操作"
                           >
-                            {deleting === sale.id ? '刪除中...' : '刪除'}
+                            {deleting === sale.id ? '...' : '⋯'}
                           </button>
                         </td>
                       </tr>
                       {expandedSales.has(sale.id) && sale.sale_items && (
                         <tr key={`${sale.id}-details`}>
-                          <td colSpan={11} className="bg-gray-50 dark:bg-gray-900 px-6 py-4">
-                            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                          <td colSpan={9} className="bg-gray-50 dark:bg-gray-900 px-6 py-4">
+                            <div className="ml-8 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
                               <h4 className="mb-3 font-semibold text-gray-900 dark:text-gray-100">銷售明細</h4>
                               <table className="w-full">
                                 <thead className="border-b">
@@ -642,13 +648,13 @@ export default function SalesPage() {
                                       </td>
                                       <td className="py-2 text-center">
                                         <span
-                                          className={`inline-block rounded px-2 py-1 text-xs ${
+                                          className={`inline-flex items-center gap-1 text-xs ${
                                             item.is_delivered
-                                              ? 'bg-green-100 text-green-800'
-                                              : 'bg-gray-100 text-gray-800'
+                                              ? 'text-blue-600 dark:text-blue-400'
+                                              : 'text-gray-500 dark:text-gray-400'
                                           }`}
                                         >
-                                          {item.is_delivered ? '已出貨' : '未出貨'}
+                                          {item.is_delivered ? '🚚 已出貨' : '• 未出貨'}
                                         </span>
                                       </td>
                                       <td className="py-2 text-center">
@@ -656,7 +662,7 @@ export default function SalesPage() {
                                           <button
                                             onClick={() => handleDeliverItem(item.id, item.snapshot_name)}
                                             disabled={delivering === item.id}
-                                            className="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:bg-gray-400"
+                                            className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700 disabled:bg-gray-400"
                                           >
                                             {delivering === item.id ? '處理中...' : '出貨'}
                                           </button>
@@ -666,14 +672,6 @@ export default function SalesPage() {
                                   ))}
                                 </tbody>
                               </table>
-                              {sale.note && sale.note.trim() !== '' && (
-                                <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-3">
-                                  <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 mb-1">備註</div>
-                                  <div className="text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 rounded px-3 py-2">
-                                    {sale.note}
-                                  </div>
-                                </div>
-                              )}
                             </div>
                           </td>
                         </tr>
