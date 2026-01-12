@@ -14,6 +14,7 @@ export default function ProductsPage() {
   const [keyword, setKeyword] = useState('')
   const [activeFilter, setActiveFilter] = useState<boolean | null>(null)
   const [page, setPage] = useState(1)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [pagination, setPagination] = useState({
     page: 1,
     pageSize: 50,
@@ -259,14 +260,14 @@ export default function ProductsPage() {
                       <div className="flex items-center gap-4">
                         <div
                           className={`text-right font-semibold ${
-                            product.stock === 0
-                              ? 'text-red-600'
-                              : product.stock < 5
-                              ? 'text-orange-600'
-                              : 'text-yellow-600'
+                            product.stock <= 3
+                              ? 'text-red-600 dark:text-red-400'
+                              : product.stock <= 9
+                              ? 'text-orange-600 dark:text-orange-400'
+                              : 'text-gray-900 dark:text-gray-100'
                           }`}
                         >
-                          <div className="text-lg">剩餘 {product.stock}</div>
+                          <div className="text-lg">{product.stock <= 3 && '⚠ '}剩餘 {product.stock}</div>
                           <div className="text-xs font-normal text-gray-900 dark:text-gray-400">
                             {product.stock === 0 ? '缺貨' : '庫存不足'}
                           </div>
@@ -383,14 +384,14 @@ export default function ProductsPage() {
                       <td className="px-6 py-4 text-right text-sm">
                         <span
                           className={
-                            product.stock <= 0
-                              ? 'font-semibold text-red-600'
-                              : product.stock < 10
-                              ? 'font-semibold text-yellow-600'
+                            product.stock <= 3
+                              ? 'font-semibold text-red-600 dark:text-red-400'
+                              : product.stock <= 9
+                              ? 'font-semibold text-orange-600 dark:text-orange-400'
                               : 'text-gray-900 dark:text-gray-100'
                           }
                         >
-                          {product.stock}
+                          {product.stock <= 3 && '⚠ '}{product.stock}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
@@ -411,37 +412,64 @@ export default function ProductsPage() {
                       </td>
                       <td className="px-6 py-4 text-center text-sm">
                         <span
-                          className={`inline-block rounded px-2 py-1 text-xs whitespace-nowrap ${
+                          className={`text-xs whitespace-nowrap ${
                             product.is_active
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-gray-500 dark:text-gray-400'
                           }`}
                         >
                           {product.is_active ? '上架' : '下架'}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center text-sm">
-                        <div className="flex items-center justify-center gap-2 whitespace-nowrap">
-                          <Link
-                            href={`/products/${product.id}/edit`}
-                            className="font-medium text-blue-600 hover:underline"
-                          >
-                            編輯
-                          </Link>
-                          <span className="text-gray-300 dark:text-gray-600">|</span>
+                        <div className="relative">
                           <button
-                            onClick={() => toggleActive(product.id, product.is_active)}
-                            className="font-medium text-green-600 hover:underline"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpenMenuId(openMenuId === product.id ? null : product.id)
+                            }}
+                            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-lg font-bold"
+                            title="更多操作"
                           >
-                            {product.is_active ? '下架' : '上架'}
+                            ⋯
                           </button>
-                          <span className="text-gray-300 dark:text-gray-600">|</span>
-                          <button
-                            onClick={() => handleDelete(product.id, product.name)}
-                            className="font-medium text-red-600 hover:underline"
-                          >
-                            刪除
-                          </button>
+                          {openMenuId === product.id && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-10"
+                                onClick={() => setOpenMenuId(null)}
+                              />
+                              <div className="absolute right-0 top-8 z-20 w-32 rounded-lg bg-white dark:bg-gray-700 shadow-lg border border-gray-200 dark:border-gray-600 py-1">
+                                <Link
+                                  href={`/products/${product.id}/edit`}
+                                  className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
+                                  onClick={() => setOpenMenuId(null)}
+                                >
+                                  編輯
+                                </Link>
+                                <button
+                                  onClick={() => {
+                                    toggleActive(product.id, product.is_active)
+                                    setOpenMenuId(null)
+                                  }}
+                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"
+                                >
+                                  {product.is_active ? '下架' : '上架'}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (confirm(`確定要刪除商品「${product.name}」嗎？此操作無法復原。`)) {
+                                      handleDelete(product.id, product.name)
+                                    }
+                                    setOpenMenuId(null)
+                                  }}
+                                  className="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-600"
+                                >
+                                  刪除
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -60,6 +60,8 @@ export default function SalesPage() {
   const [sourceFilter, setSourceFilter] = useState<'all' | 'pos' | 'live'>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 50
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
+  const [batchDelivering, setBatchDelivering] = useState(false)
 
   const toggleCustomer = (customerKey: string) => {
     const newExpanded = new Set(expandedCustomers)
@@ -213,11 +215,83 @@ export default function SalesPage() {
     }
   }
 
+  const handleBatchDeliver = async () => {
+    if (selectedItemIds.size === 0) {
+      alert('請先選擇要出貨的商品')
+      return
+    }
+
+    if (!confirm(`確定要批量出貨 ${selectedItemIds.size} 個商品嗎？\n\n此操作將會扣除庫存。`)) {
+      return
+    }
+
+    setBatchDelivering(true)
+    try {
+      const res = await fetch('/api/sale-items/batch-deliver', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sale_item_ids: Array.from(selectedItemIds)
+        })
+      })
+
+      const data = await res.json()
+
+      if (data.ok) {
+        alert(data.message || '批量出貨成功！')
+        setSelectedItemIds(new Set())
+        fetchSales()
+      } else {
+        alert(`批量出貨失敗：${data.error}`)
+      }
+    } catch (err) {
+      alert('批量出貨失敗')
+    } finally {
+      setBatchDelivering(false)
+    }
+  }
+
+  const toggleItemSelection = (itemId: string) => {
+    const newSelected = new Set(selectedItemIds)
+    if (newSelected.has(itemId)) {
+      newSelected.delete(itemId)
+    } else {
+      newSelected.add(itemId)
+    }
+    setSelectedItemIds(newSelected)
+  }
+
+  const toggleAllItemsInSale = (sale: Sale) => {
+    if (!sale.sale_items) return
+
+    const undeliveredItems = sale.sale_items.filter(item => !item.is_delivered)
+    const allSelected = undeliveredItems.every(item => selectedItemIds.has(item.id))
+
+    const newSelected = new Set(selectedItemIds)
+    if (allSelected) {
+      // 取消全選
+      undeliveredItems.forEach(item => newSelected.delete(item.id))
+    } else {
+      // 全選
+      undeliveredItems.forEach(item => newSelected.add(item.id))
+    }
+    setSelectedItemIds(newSelected)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
       <div className="mx-auto max-w-7xl">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">銷售記錄</h1>
+          {selectedItemIds.size > 0 && (
+            <button
+              onClick={handleBatchDeliver}
+              disabled={batchDelivering}
+              className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {batchDelivering ? '處理中...' : `批量出貨 (${selectedItemIds.size})`}
+            </button>
+          )}
         </div>
 
         {/* Search & Filters */}
@@ -451,10 +525,23 @@ export default function SalesPage() {
                                 {expandedSales.has(sale.id) && sale.sale_items && (
                                   <tr key={`${sale.id}-items`}>
                                     <td colSpan={7} className="bg-white dark:bg-gray-800 py-2 px-4">
-                                      <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">商品明細</div>
+                                      <div className="flex items-center justify-between mb-2">
+                                        <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">商品明細</div>
+                                        {sale.sale_items.some(item => !item.is_delivered) && (
+                                          <button
+                                            onClick={() => toggleAllItemsInSale(sale)}
+                                            className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                          >
+                                            {sale.sale_items.filter(item => !item.is_delivered).every(item => selectedItemIds.has(item.id))
+                                              ? '取消全選'
+                                              : '全選未出貨'}
+                                          </button>
+                                        )}
+                                      </div>
                                       <table className="w-full text-xs">
                                         <thead className="border-b">
                                           <tr>
+                                            <th className="pb-1 text-left text-gray-600 dark:text-gray-400 w-8">選擇</th>
                                             <th className="pb-1 text-left text-gray-600 dark:text-gray-400">品號</th>
                                             <th className="pb-1 text-left text-gray-600 dark:text-gray-400">商品</th>
                                             <th className="pb-1 text-right text-gray-600 dark:text-gray-400">數量</th>
@@ -467,6 +554,16 @@ export default function SalesPage() {
                                         <tbody>
                                           {sale.sale_items.map((item) => (
                                             <tr key={item.id}>
+                                              <td className="py-1 text-center">
+                                                {!item.is_delivered && (
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={selectedItemIds.has(item.id)}
+                                                    onChange={() => toggleItemSelection(item.id)}
+                                                    className="h-4 w-4 cursor-pointer"
+                                                  />
+                                                )}
+                                              </td>
                                               <td className="py-1 text-gray-700 dark:text-gray-300">{item.products.item_code}</td>
                                               <td className="py-1 text-gray-700 dark:text-gray-300">{item.snapshot_name}</td>
                                               <td className="py-1 text-right text-gray-700 dark:text-gray-300">
@@ -641,10 +738,23 @@ export default function SalesPage() {
                         <tr key={`${sale.id}-details`}>
                           <td colSpan={9} className="bg-gray-50 dark:bg-gray-900 px-6 py-4">
                             <div className="ml-8 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-                              <h4 className="mb-3 font-semibold text-gray-900 dark:text-gray-100">銷售明細</h4>
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="font-semibold text-gray-900 dark:text-gray-100">銷售明細</h4>
+                                {sale.sale_items.some(item => !item.is_delivered) && (
+                                  <button
+                                    onClick={() => toggleAllItemsInSale(sale)}
+                                    className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                  >
+                                    {sale.sale_items.filter(item => !item.is_delivered).every(item => selectedItemIds.has(item.id))
+                                      ? '取消全選'
+                                      : '全選未出貨'}
+                                  </button>
+                                )}
+                              </div>
                               <table className="w-full">
                                 <thead className="border-b">
                                   <tr>
+                                    <th className="pb-2 text-left text-xs font-semibold text-gray-900 dark:text-gray-100 w-10">選擇</th>
                                     <th className="pb-2 text-left text-xs font-semibold text-gray-900 dark:text-gray-100">品號</th>
                                     <th className="pb-2 text-left text-xs font-semibold text-gray-900 dark:text-gray-100">商品名稱</th>
                                     <th className="pb-2 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">數量</th>
@@ -657,6 +767,16 @@ export default function SalesPage() {
                                 <tbody className="divide-y">
                                   {sale.sale_items.map((item) => (
                                     <tr key={item.id}>
+                                      <td className="py-2 text-center">
+                                        {!item.is_delivered && (
+                                          <input
+                                            type="checkbox"
+                                            checked={selectedItemIds.has(item.id)}
+                                            onChange={() => toggleItemSelection(item.id)}
+                                            className="h-4 w-4 cursor-pointer"
+                                          />
+                                        )}
+                                      </td>
                                       <td className="py-2 text-sm text-gray-900 dark:text-gray-100">{item.products.item_code}</td>
                                       <td className="py-2 text-sm text-gray-900 dark:text-gray-100">{item.snapshot_name}</td>
                                       <td className="py-2 text-right text-sm text-gray-900 dark:text-gray-100">

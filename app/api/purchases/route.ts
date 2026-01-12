@@ -187,46 +187,14 @@ export async function POST(request: NextRequest) {
     // 3. Calculate total
     const total = draft.items.reduce((sum, item) => sum + (item.quantity * item.cost), 0)
 
-    // 4. Manually update inventory for each item
-    // Update stock and avg_cost for each product
-    for (const item of insertedItems) {
-      // Get current product stock and avg_cost
-      const { data: product } = await (supabaseServer
-        .from('products') as any)
-        .select('stock, avg_cost')
-        .eq('id', item.product_id)
-        .single()
-
-      if (product) {
-        const oldStock = product.stock
-        const oldAvgCost = product.avg_cost
-        const newStock = oldStock + item.quantity
-
-        // Calculate new average cost using weighted average
-        let newAvgCost = oldAvgCost
-        if (newStock > 0) {
-          newAvgCost = ((oldStock * oldAvgCost) + (item.quantity * item.cost)) / newStock
-        }
-
-        // Update product stock and avg_cost
-        await (supabaseServer
-          .from('products') as any)
-          .update({
-            stock: newStock,
-            avg_cost: newAvgCost,
-          })
-          .eq('id', item.product_id)
-
-        console.log(`[Purchase ${purchase.id}] Updated inventory for product ${item.product_id}: ${oldStock} -> ${newStock}, avg_cost: ${oldAvgCost.toFixed(2)} -> ${newAvgCost.toFixed(2)}`)
-      }
-    }
-
-    // 5. Update purchase to confirmed
+    // 4. Update purchase with total (状态保持为 pending，等待收货)
+    // 不在这里增加库存，库存将在收货时增加
     const { data: confirmedPurchase, error: confirmError } = await (supabaseServer
       .from('purchases') as any)
       .update({
         total,
-        status: 'confirmed',
+        status: 'pending', // 状态为 pending，等待收货
+        receiving_status: 'none', // 初始收货状态为 none
       })
       .eq('id', purchase.id)
       .select()

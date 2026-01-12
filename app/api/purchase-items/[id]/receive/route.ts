@@ -119,7 +119,7 @@ export async function POST(
       receivingNo = existingReceiving.receiving_no
     }
 
-    // 5. 创建收货明细（会触发库存增加和收货数量更新）
+    // 5. 创建收货明细
     const { data: receivingItem, error: receivingItemError } = await (supabaseServer
       .from('purchase_receiving_items') as any)
       .insert({
@@ -136,6 +136,95 @@ export async function POST(
         { ok: false, error: receivingItemError.message },
         { status: 500 }
       )
+    }
+
+    // 6. 更新 purchase_item 的 received_quantity
+    const newReceivedQuantity = purchaseItem.received_quantity + quantity
+    const isFullyReceived = newReceivedQuantity >= purchaseItem.quantity
+
+    const { error: updateItemError } = await (supabaseServer
+      .from('purchase_items') as any)
+      .update({
+        received_quantity: newReceivedQuantity,
+        is_received: isFullyReceived,
+      })
+      .eq('id', id)
+
+    if (updateItemError) {
+      console.error('Failed to update purchase_item:', updateItemError)
+    }
+
+    // 7. 更新商品库存和平均成本
+    const { data: product } = await (supabaseServer
+      .from('products') as any)
+      .select('stock, avg_cost')
+      .eq('id', purchaseItem.product_id)
+      .single()
+
+    if (product) {
+      const oldStock = product.stock
+      const oldAvgCost = product.avg_cost
+      const newStock = oldStock + quantity
+
+      // 使用加权平均计算新的平均成本
+      let newAvgCost = oldAvgCost
+      if (newStock > 0) {
+        newAvgCost = ((oldStock * oldAvgCost) + (quantity * purchaseItem.cost)) / newStock
+      }
+
+      // 更新商品库存和平均成本
+      const { error: updateStockError } = await (supabaseServer
+        .from('products') as any)
+        .update({
+          stock: newStock,
+          avg_cost: newAvgCost,
+        })
+        .eq('id', purchaseItem.product_id)
+
+      if (updateStockError) {
+        console.error('Failed to update product stock:', updateStockError)
+      } else {
+        console.log(`[Receive] Updated inventory for product ${purchaseItem.product_id}: ${oldStock} -> ${newStock}, avg_cost: ${oldAvgCost.toFixed(2)} -> ${newAvgCost.toFixed(2)}`)
+      }
+    }
+
+    // 8. 创建库存日志
+    const { error: logError } = await (supabaseServer
+      .from('inventory_logs') as any)
+      .insert({
+        product_id: purchaseItem.product_id,
+        ref_type: 'purchase_receiving',
+        ref_id: receivingId,
+        qty_change: quantity,
+        memo: `收货 - ${receivingNo} (进货单: ${purchase?.purchase_no})`,
+      })
+
+    if (logError) {
+      console.error('Failed to create inventory log:', logError)
+    }
+
+    // 9. 更新进货单的 receiving_status
+    // 检查该进货单的所有 purchase_items 是否都已收货
+    const { data: allPurchaseItems } = await (supabaseServer
+      .from('purchase_items') as any)
+      .select('id, quantity, received_quantity, is_received')
+      .eq('purchase_id', purchaseItem.purchase_id)
+
+    if (allPurchaseItems) {
+      const allReceived = allPurchaseItems.every((item: any) => item.is_received)
+      const anyReceived = allPurchaseItems.some((item: any) => item.received_quantity > 0)
+
+      let newReceivingStatus = 'none'
+      if (allReceived) {
+        newReceivingStatus = 'completed'
+      } else if (anyReceived) {
+        newReceivingStatus = 'partial'
+      }
+
+      await (supabaseServer
+        .from('purchases') as any)
+        .update({ receiving_status: newReceivingStatus })
+        .eq('id', purchaseItem.purchase_id)
     }
 
     return NextResponse.json(
