@@ -66,8 +66,8 @@ export default function POSPage() {
   const [discountValue, setDiscountValue] = useState(0)
   const barcodeInputRef = useRef<HTMLInputElement>(null)
 
-  // Sales mode - 固定為店裡模式
-  const salesMode = 'pos' as const
+  // Sales mode - 可切換店裡/直播模式
+  const [salesMode, setSalesMode] = useState<'pos' | 'live'>('pos')
 
   // Pinned products (常用商品固定)
   const [pinnedProductIds, setPinnedProductIds] = useState<Set<string>>(() => {
