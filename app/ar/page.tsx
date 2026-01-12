@@ -28,6 +28,18 @@ type ARAccount = {
       unit: string
     }
   }
+  sale_items?: Array<{
+    id: string
+    quantity: number
+    price: number
+    subtotal: number
+    snapshot_name: string
+    product_id: string
+    products: {
+      item_code: string
+      unit: string
+    }
+  }>
   sales?: {
     id: string
     sale_no: string
@@ -449,6 +461,16 @@ export default function ARPageV2() {
                                         <div className="font-medium">{account.sale_item.snapshot_name}</div>
                                         <div className="text-xs text-gray-500 dark:text-gray-400">{account.sale_item.products.item_code}</div>
                                       </div>
+                                    ) : account.sale_items && account.sale_items.length > 0 ? (
+                                      <div className="space-y-1">
+                                        {account.sale_items.map((item, idx) => (
+                                          <div key={item.id}>
+                                            <div className="font-medium">{item.snapshot_name}</div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">{item.products.item_code}</div>
+                                            {idx < account.sale_items!.length - 1 && <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>}
+                                          </div>
+                                        ))}
+                                      </div>
                                     ) : (
                                       <span className="text-gray-400">-</span>
                                     )}
@@ -456,6 +478,15 @@ export default function ARPageV2() {
                                   <td className="py-2 text-right text-sm text-gray-900 dark:text-gray-100">
                                     {account.sale_item ? (
                                       `${account.sale_item.quantity} ${account.sale_item.products.unit}`
+                                    ) : account.sale_items && account.sale_items.length > 0 ? (
+                                      <div className="space-y-1">
+                                        {account.sale_items.map((item, idx) => (
+                                          <div key={item.id}>
+                                            {item.quantity} {item.products.unit}
+                                            {idx < account.sale_items!.length - 1 && <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>}
+                                          </div>
+                                        ))}
+                                      </div>
                                     ) : (
                                       <span className="text-gray-400">-</span>
                                     )}

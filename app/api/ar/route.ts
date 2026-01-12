@@ -64,9 +64,10 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Fetch sales details to get sale_no
+    // Fetch sales details to get sale_no and sale_items
     const saleIds = [...new Set((accounts as any[])?.filter(a => a.ref_type === 'sale').map(a => a.ref_id) || [])]
     let salesMap = new Map()
+    let saleItemsBySaleId = new Map()
 
     if (saleIds.length > 0) {
       const { data: sales } = await supabaseServer
@@ -77,6 +78,20 @@ export async function GET(request: NextRequest) {
       salesMap = new Map(
         (sales as any[])?.map(s => [s.id, s]) || []
       )
+
+      // Fetch all sale items for these sales
+      const { data: saleItems } = await supabaseServer
+        .from('sale_items')
+        .select('id, quantity, price, subtotal, product_id, sale_id, snapshot_name, products:product_id(item_code, unit)')
+        .in('sale_id', saleIds)
+
+      // Group sale items by sale_id
+      saleItems?.forEach((item: any) => {
+        if (!saleItemsBySaleId.has(item.sale_id)) {
+          saleItemsBySaleId.set(item.sale_id, [])
+        }
+        saleItemsBySaleId.get(item.sale_id).push(item)
+      })
     }
 
     // Map customer names and sales to accounts
@@ -84,12 +99,18 @@ export async function GET(request: NextRequest) {
       (customers as any[])?.map(c => [c.customer_code, c]) || []
     )
 
-    const accountsWithDetails = (accounts as any[])?.map(account => ({
-      ...account,
-      customers: customersMap.get(account.partner_code) || null,
-      sale_item: account.sale_item_id ? itemsMap.get(account.sale_item_id) : null,
-      sales: account.ref_type === 'sale' ? salesMap.get(account.ref_id) : null
-    }))
+    const accountsWithDetails = (accounts as any[])?.map(account => {
+      const saleData = account.ref_type === 'sale' ? salesMap.get(account.ref_id) : null
+      const saleItems = account.ref_type === 'sale' ? saleItemsBySaleId.get(account.ref_id) || [] : []
+      
+      return {
+        ...account,
+        customers: customersMap.get(account.partner_code) || null,
+        sale_item: account.sale_item_id ? itemsMap.get(account.sale_item_id) : null,
+        sales: saleData,
+        sale_items: saleItems // 添加完整的 sale_items 列表
+      }
+    })
 
     return NextResponse.json({ ok: true, data: accountsWithDetails })
   } catch (error) {
