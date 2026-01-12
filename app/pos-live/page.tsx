@@ -234,13 +234,20 @@ export default function POSPage() {
 
   const fetchClosingStats = async () => {
     try {
+      console.log('[fetchClosingStats] 開始獲取日結統計，source:', salesMode)
       const res = await fetch(`/api/business-day-closing?source=${salesMode}`)
       const data = await res.json()
+      console.log('[fetchClosingStats] API 響應:', data)
+
       if (data.ok) {
+        console.log('[fetchClosingStats] last_closing_time:', data.data.last_closing_time)
+        console.log('[fetchClosingStats] current_stats:', data.data.current_stats)
+
         setLastClosingTime(data.data.last_closing_time)
         setClosingStats(data.data.current_stats)
+
         // 獲取結帳時間後，再獲取當日銷售
-        fetchTodaySales(data.data.last_closing_time)
+        await fetchTodaySales(data.data.last_closing_time)
       }
     } catch (err) {
       console.error('Failed to fetch closing stats:', err)
@@ -250,10 +257,16 @@ export default function POSPage() {
   const fetchTodaySales = async (closingTime?: string) => {
     try {
       const timeParam = closingTime || lastClosingTime
-      if (!timeParam) return
+      if (!timeParam) {
+        console.log('[fetchTodaySales] 沒有 closing time，跳過')
+        return
+      }
 
+      console.log('[fetchTodaySales] 查詢當日銷售，created_from:', timeParam, 'source:', salesMode)
       const res = await fetch(`/api/sales?created_from=${timeParam}&source=${salesMode}`)
       const data = await res.json()
+      console.log('[fetchTodaySales] 返回的銷售記錄:', data.data?.length, '筆')
+
       if (data.ok) {
         setTodaySales(data.data || [])
       }
@@ -269,6 +282,7 @@ export default function POSPage() {
 
     setClosingInProgress(true)
     try {
+      console.log('[日結] 開始執行日結，source:', salesMode)
       const res = await fetch('/api/business-day-closing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -276,16 +290,25 @@ export default function POSPage() {
       })
 
       const data = await res.json()
+      console.log('[日結] API 響應:', data)
+
       if (data.ok) {
+        console.log('[日結] 日結成功，新的 closing_time:', data.data?.closing_time)
         alert('日結完成！')
         setShowClosingModal(false)
         setClosingNote('')
+
+        // 稍微延遲後重新獲取，確保數據庫已更新
+        await new Promise(resolve => setTimeout(resolve, 500))
+
         // 重新獲取結帳統計
-        fetchClosingStats()
+        console.log('[日結] 重新獲取日結統計...')
+        await fetchClosingStats()
       } else {
         alert(`日結失敗：${data.error}`)
       }
     } catch (err) {
+      console.error('[日結] 錯誤:', err)
       alert('日結失敗')
     } finally {
       setClosingInProgress(false)
@@ -947,7 +970,11 @@ export default function POSPage() {
             當日交易
           </button>
           <button
-            onClick={() => setShowClosingModal(true)}
+            onClick={async () => {
+              // 打開日結對話框前，先重新獲取最新統計數據
+              await fetchClosingStats()
+              setShowClosingModal(true)
+            }}
             className="font-bold px-4 py-2 rounded-lg transition-all bg-green-600 hover:bg-green-700 text-white"
           >
             日結

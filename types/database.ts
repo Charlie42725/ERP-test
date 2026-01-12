@@ -456,6 +456,18 @@ export interface Database {
           total_card: number
           total_transfer: number
           total_cod: number
+          paid_count: number
+          paid_sales: number
+          paid_cash: number
+          paid_card: number
+          paid_transfer: number
+          paid_cod: number
+          unpaid_count: number
+          unpaid_sales: number
+          unpaid_cash: number
+          unpaid_card: number
+          unpaid_transfer: number
+          unpaid_cod: number
           sales_by_account: Json | null
           note: string | null
           created_by: string | null
@@ -471,6 +483,18 @@ export interface Database {
           total_card?: number
           total_transfer?: number
           total_cod?: number
+          paid_count?: number
+          paid_sales?: number
+          paid_cash?: number
+          paid_card?: number
+          paid_transfer?: number
+          paid_cod?: number
+          unpaid_count?: number
+          unpaid_sales?: number
+          unpaid_cash?: number
+          unpaid_card?: number
+          unpaid_transfer?: number
+          unpaid_cod?: number
           sales_by_account?: Json | null
           note?: string | null
           created_by?: string | null
@@ -486,6 +510,18 @@ export interface Database {
           total_card?: number
           total_transfer?: number
           total_cod?: number
+          paid_count?: number
+          paid_sales?: number
+          paid_cash?: number
+          paid_card?: number
+          paid_transfer?: number
+          paid_cod?: number
+          unpaid_count?: number
+          unpaid_sales?: number
+          unpaid_cash?: number
+          unpaid_card?: number
+          unpaid_transfer?: number
+          unpaid_cod?: number
           sales_by_account?: Json | null
           note?: string | null
           created_by?: string | null

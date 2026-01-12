@@ -175,20 +175,56 @@ export async function POST(request: NextRequest) {
 
         const saleNo = generateCode('S', count || 0)
 
+        // Get account_id based on payment_method
+        const { data: account } = await (supabaseServer
+          .from('accounts') as any)
+          .select('id')
+          .eq('payment_method_code', order.paymentMethod)
+          .eq('is_active', true)
+          .single()
+
+        const accountId = account?.id || null
+
+        // 取得台灣時間 (UTC+8)
+        const now = new Date()
+        const taiwanTime = new Date(now.getTime() + 8 * 60 * 60 * 1000)
+        const createdAt = taiwanTime.toISOString() // 完整的台灣時間戳記
+
+        // 根據上次日結時間決定 sale_date（營業日）
+        let saleDate: string
+        const { data: lastClosing } = await (supabaseServer
+          .from('business_day_closings') as any)
+          .select('closing_time')
+          .eq('source', 'live')
+          .order('closing_time', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (lastClosing?.closing_time) {
+          // 使用上次日結時間的日期作為營業日
+          saleDate = lastClosing.closing_time.split('T')[0]
+        } else {
+          // 第一次使用（沒有日結記錄），使用當天台灣時區的零點日期
+          saleDate = taiwanTime.toISOString().split('T')[0]
+        }
+
         // Create sale (draft)
         const { data: sale, error: saleError } = await (supabaseServer
           .from('sales') as any)
           .insert({
             sale_no: saleNo,
             customer_code: customerCode,
+            sale_date: saleDate,
             source: 'live',
             payment_method: order.paymentMethod,
+            account_id: accountId,
             is_paid: order.isPaid,
             note: order.note || null,
             discount_type: order.discountType,
             discount_value: order.discountValue,
             status: 'draft',
             total: 0,
+            created_at: createdAt,
           })
           .select()
           .single()

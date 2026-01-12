@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get('date_from')
     const dateTo = searchParams.get('date_to')
     const createdFrom = searchParams.get('created_from') // 用於日結：從某時間點之後創建的訂單
+    const createdTo = searchParams.get('created_to') // 用於營業日報表：到某時間點之前創建的訂單
     const customerCode = searchParams.get('customer_code')
     const source = searchParams.get('source')
     const keyword = searchParams.get('keyword')
@@ -47,7 +48,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (createdFrom) {
-      query = query.gte('created_at', createdFrom)
+      // 使用 gt (大於) 避免邊界重複，日結時間點的訂單已經在上一個營業日中
+      query = query.gt('created_at', createdFrom)
+    }
+
+    if (createdTo) {
+      query = query.lte('created_at', createdTo)
     }
 
     if (customerCode) {
@@ -79,6 +85,19 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query
 
     if (error) {
+      console.error('[Sales API] Query error:', {
+        error: error.message,
+        params: {
+          dateFrom,
+          dateTo,
+          createdFrom,
+          createdTo,
+          source,
+          customerCode,
+          keyword,
+          productKeyword
+        }
+      })
       return NextResponse.json(
         { ok: false, error: error.message },
         { status: 500 }
@@ -205,8 +224,25 @@ export async function POST(request: NextRequest) {
     // 取得台灣時間 (UTC+8)
     const now = new Date()
     const taiwanTime = new Date(now.getTime() + 8 * 60 * 60 * 1000)
-    const saleDate = taiwanTime.toISOString().split('T')[0] // YYYY-MM-DD
     const createdAt = taiwanTime.toISOString() // 完整的台灣時間戳記
+
+    // 根據上次日結時間決定 sale_date（營業日）
+    let saleDate: string
+    const { data: lastClosing } = await (supabaseServer
+      .from('business_day_closings') as any)
+      .select('closing_time')
+      .eq('source', draft.source)
+      .order('closing_time', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (lastClosing?.closing_time) {
+      // 使用上次日結時間的日期作為營業日
+      saleDate = lastClosing.closing_time.split('T')[0]
+    } else {
+      // 第一次使用（沒有日結記錄），使用當天台灣時區的零點日期
+      saleDate = taiwanTime.toISOString().split('T')[0]
+    }
 
     // Start transaction-like operations
     // 1. Create sale (draft)

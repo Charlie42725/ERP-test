@@ -31,6 +31,17 @@ type RecentSale = {
   created_at: string
 }
 
+type BusinessDayClosing = {
+  id: string
+  source: 'pos' | 'live'
+  closing_time: string
+  sales_count: number
+  total_sales: number
+  paid_sales: number
+  unpaid_sales: number
+  created_at: string
+}
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats>({
     todaySales: 0,
@@ -50,18 +61,116 @@ export default function DashboardPage() {
   const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0])
   const [sourceFilter, setSourceFilter] = useState<'all' | 'pos' | 'live'>('all')
 
+  // 新增：報表模式（按日期 vs 按營業日）
+  const [reportMode, setReportMode] = useState<'by_date' | 'by_business_day'>('by_date')
+  const [businessDayClosings, setBusinessDayClosings] = useState<BusinessDayClosing[]>([])
+  const [selectedClosingId, setSelectedClosingId] = useState<string>('')
+
   useEffect(() => {
     fetchDashboardData()
-  }, [dateFrom, dateTo, sourceFilter])
+  }, [dateFrom, dateTo, sourceFilter, reportMode, selectedClosingId])
+
+  useEffect(() => {
+    // 當切換到營業日模式時，獲取日結記錄列表
+    if (reportMode === 'by_business_day') {
+      // 營業日模式不支持 'all'，自動切換到 'pos'
+      if (sourceFilter === 'all') {
+        setSourceFilter('pos')
+      } else {
+        fetchBusinessDayClosings()
+      }
+    }
+  }, [reportMode, sourceFilter])
+
+  const fetchBusinessDayClosings = async () => {
+    try {
+      const source = sourceFilter === 'all' ? 'pos' : sourceFilter
+      const res = await fetch(`/api/business-day-closing?source=${source}&list=true`)
+      const data = await res.json()
+      if (data.ok) {
+        setBusinessDayClosings(data.data || [])
+        // 預設選擇最新的一筆
+        if (data.data && data.data.length > 0) {
+          setSelectedClosingId(data.data[0].id)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch business day closings:', err)
+    }
+  }
 
   const fetchDashboardData = async () => {
     setLoading(true)
     try {
-      // Fetch sales within date range
-      const sourceParam = sourceFilter !== 'all' ? `&source=${sourceFilter}` : ''
-      const salesRes = await fetch(`/api/sales?date_from=${dateFrom}&date_to=${dateTo}${sourceParam}`)
-      const salesData = await salesRes.json()
-      const salesInRange = salesData.ok ? salesData.data : []
+      let salesInRange: any[] = []
+      let expensesInRange: any[] = []
+
+      // 根據報表模式使用不同的查詢方式
+      if (reportMode === 'by_business_day') {
+        if (!selectedClosingId || businessDayClosings.length === 0) {
+          // 沒有選擇或沒有日結記錄，顯示空數據
+          setLoading(false)
+          return
+        }
+
+        // 按營業日查詢
+        const selectedClosing = businessDayClosings.find(c => c.id === selectedClosingId)
+        if (!selectedClosing) {
+          setLoading(false)
+          return
+        }
+
+        // 找到上一個日結記錄（作為起始時間）
+        const closingIndex = businessDayClosings.findIndex(c => c.id === selectedClosingId)
+        const previousClosing = businessDayClosings[closingIndex + 1]
+
+        const createdFrom = previousClosing ? previousClosing.closing_time : '1970-01-01T00:00:00Z'
+        const createdTo = selectedClosing.closing_time
+
+        console.log('[營業日報表] 查詢範圍:', { createdFrom, createdTo, source: sourceFilter })
+
+        // 查詢該營業日期間的銷售（使用 created_at），確保 URL 編碼
+        const sourceParam = sourceFilter !== 'all' ? `&source=${sourceFilter}` : ''
+        const encodedFrom = encodeURIComponent(createdFrom)
+        const encodedTo = encodeURIComponent(createdTo)
+
+        console.log('[營業日報表] 發起查詢:', {
+          url: `/api/sales?created_from=${encodedFrom}&created_to=${encodedTo}${sourceParam}`,
+          raw: { createdFrom, createdTo, source: sourceFilter }
+        })
+
+        const salesRes = await fetch(`/api/sales?created_from=${encodedFrom}&created_to=${encodedTo}${sourceParam}`)
+        const salesData = await salesRes.json()
+
+        if (!salesData.ok) {
+          console.error('[營業日報表] 查詢銷售失敗:', salesData.error)
+          alert(`查詢銷售失敗: ${salesData.error}`)
+          salesInRange = []
+        } else {
+          salesInRange = salesData.data || []
+          console.log('[營業日報表] 查詢到的銷售記錄:', salesInRange.length, '筆')
+        }
+
+        // 查詢該營業日期間的支出（使用 date）
+        const dateFrom = createdFrom.split('T')[0]
+        const dateTo = createdTo.split('T')[0]
+        const expensesRes = await fetch(`/api/expenses?date_from=${dateFrom}&date_to=${dateTo}`)
+        const expensesData = await expensesRes.json()
+        expensesInRange = expensesData.ok ? expensesData.data : []
+      } else {
+        // 按日期查詢（原有邏輯）
+        const sourceParam = sourceFilter !== 'all' ? `&source=${sourceFilter}` : ''
+        const salesRes = await fetch(`/api/sales?date_from=${dateFrom}&date_to=${dateTo}${sourceParam}`)
+        const salesData = await salesRes.json()
+        salesInRange = salesData.ok ? salesData.data : []
+
+        // Fetch expenses within date range
+        const expensesRes = await fetch(`/api/expenses?date_from=${dateFrom}&date_to=${dateTo}`)
+        const expensesData = await expensesRes.json()
+        expensesInRange = expensesData.ok ? expensesData.data : []
+      }
+
+      // 繼續原有的統計邏輯
       const totalSales = salesInRange
         .filter((s: any) => s.status === 'confirmed')
         .reduce((sum: number, s: any) => sum + s.total, 0)
@@ -103,10 +212,7 @@ export default function DashboardPage() {
         total_cost: item.cost * item.quantity
       }))
 
-      // Fetch expenses within date range
-      const expensesRes = await fetch(`/api/expenses?date_from=${dateFrom}&date_to=${dateTo}`)
-      const expensesData = await expensesRes.json()
-      const expensesInRange = expensesData.ok ? expensesData.data : []
+      // Calculate total expenses
       const totalExpenses = expensesInRange.reduce(
         (sum: number, e: any) => sum + e.amount,
         0
@@ -184,9 +290,36 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-7xl">
         <h1 className="mb-6 text-3xl font-bold text-gray-900 dark:text-gray-100">營收報表</h1>
 
+        {/* Report Mode Selector */}
+        <div className="mb-6 rounded-lg bg-white dark:bg-gray-800 p-4 shadow">
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={() => setReportMode('by_date')}
+              className={`flex-1 rounded-lg px-4 py-3 text-sm font-bold transition-all ${
+                reportMode === 'by_date'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+              }`}
+            >
+              📅 按日期查看
+            </button>
+            <button
+              onClick={() => setReportMode('by_business_day')}
+              className={`flex-1 rounded-lg px-4 py-3 text-sm font-bold transition-all ${
+                reportMode === 'by_business_day'
+                  ? 'bg-green-600 text-white shadow-md'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+              }`}
+            >
+              💼 按營業日查看
+            </button>
+          </div>
+        </div>
+
         {/* Date Filter */}
         <div className="mb-6 rounded-lg bg-white dark:bg-gray-800 p-4 shadow">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {reportMode === 'by_date' ? (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-100">
                 起始日期
@@ -247,6 +380,68 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+          ) : (
+            // 按營業日模式
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-100">
+                  選擇營業日
+                </label>
+                <select
+                  value={selectedClosingId}
+                  onChange={(e) => setSelectedClosingId(e.target.value)}
+                  className="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none"
+                  disabled={businessDayClosings.length === 0}
+                >
+                  {businessDayClosings.length === 0 ? (
+                    <option>無日結記錄</option>
+                  ) : (
+                    businessDayClosings.map((closing) => {
+                      const closingIndex = businessDayClosings.findIndex(c => c.id === closing.id)
+                      const previousClosing = businessDayClosings[closingIndex + 1]
+                      const startTime = previousClosing
+                        ? new Date(previousClosing.closing_time).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
+                        : '開始'
+                      const endTime = new Date(closing.closing_time).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
+
+                      return (
+                        <option key={closing.id} value={closing.id}>
+                          {startTime} → {endTime} (💰 {formatCurrency(closing.total_sales)} | {closing.sales_count} 筆)
+                        </option>
+                      )
+                    })
+                  )}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-100">
+                  銷售通路
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSourceFilter('pos')}
+                    className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${
+                      sourceFilter === 'pos'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    🏪 店裡
+                  </button>
+                  <button
+                    onClick={() => setSourceFilter('live')}
+                    className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${
+                      sourceFilter === 'live'
+                        ? 'bg-pink-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    📱 直播
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* KPI Cards - Row 1: Revenue & Profit */}

@@ -1,18 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseServer } from '@/lib/supabase/server'
 
-// GET /api/business-day-closing - 獲取上次結帳時間和當日統計
+// GET /api/business-day-closing - 獲取上次結帳時間和當日統計，或列出所有日結記錄
 export async function GET(request: NextRequest) {
   try {
     // 從 URL 參數獲取來源（pos 或 live），預設為 pos
     const { searchParams } = new URL(request.url)
     const source = searchParams.get('source') || 'pos'
+    const list = searchParams.get('list') === 'true' // 是否返回列表
 
     if (source !== 'pos' && source !== 'live') {
       return NextResponse.json(
         { ok: false, error: 'Invalid source. Must be "pos" or "live"' },
         { status: 400 }
       )
+    }
+
+    // 如果是列表模式，返回所有日結記錄
+    if (list) {
+      const { data: closings, error } = await (supabaseServer
+        .from('business_day_closings') as any)
+        .select('*')
+        .eq('source', source)
+        .order('closing_time', { ascending: false })
+        .limit(50) // 最多返回 50 筆
+
+      if (error) {
+        return NextResponse.json(
+          { ok: false, error: error.message },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({
+        ok: true,
+        data: closings || [],
+      })
     }
 
     // 1. 獲取上次結帳時間（按來源）
@@ -44,10 +67,11 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. 計算當日銷售統計（按來源篩選，包含未收款訂單）
+    // 使用 gt (大於) 而不是 gte (大於等於)，避免日結時間點的訂單被重複計算
     const { data: sales, error: salesError } = await (supabaseServer
       .from('sales') as any)
       .select('total, payment_method, account_id, is_paid, source, sale_no, created_at')
-      .gte('created_at', lastClosingTime)
+      .gt('created_at', lastClosingTime)
       .eq('source', source)
       .eq('status', 'confirmed')
       // 包含金額為 0 的訂單（例如：促銷、贈品等）
@@ -196,6 +220,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. 計算當日銷售統計（按來源篩選，包含未收款訂單）
+    // POST 時使用 gte (包含邊界)，確保不遺漏訂單
     const { data: sales, error: salesError } = await (supabaseServer
       .from('sales') as any)
       .select('total, payment_method, account_id, is_paid, source, sale_no, created_at')
@@ -237,6 +262,10 @@ export async function POST(request: NextRequest) {
       // 未收款統計
       unpaid_count: 0,
       unpaid_sales: 0,
+      unpaid_cash: 0,
+      unpaid_card: 0,
+      unpaid_transfer: 0,
+      unpaid_cod: 0,
 
       sales_by_account: {} as { [key: string]: number },
     }
@@ -279,6 +308,17 @@ export async function POST(request: NextRequest) {
       } else {
         stats.unpaid_count += 1
         stats.unpaid_sales += sale.total
+
+        // 未收款也按付款方式分類
+        if (sale.payment_method === 'cash') {
+          stats.unpaid_cash += sale.total
+        } else if (sale.payment_method === 'card') {
+          stats.unpaid_card += sale.total
+        } else if (sale.payment_method === 'cod') {
+          stats.unpaid_cod += sale.total
+        } else if (sale.payment_method.startsWith('transfer_')) {
+          stats.unpaid_transfer += sale.total
+        }
       }
     })
 
@@ -304,6 +344,10 @@ export async function POST(request: NextRequest) {
         // 未收款統計
         unpaid_count: stats.unpaid_count,
         unpaid_sales: stats.unpaid_sales,
+        unpaid_cash: stats.unpaid_cash,
+        unpaid_card: stats.unpaid_card,
+        unpaid_transfer: stats.unpaid_transfer,
+        unpaid_cod: stats.unpaid_cod,
         sales_by_account: stats.sales_by_account,
         note: note || null,
       })
