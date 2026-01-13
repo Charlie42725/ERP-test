@@ -75,6 +75,11 @@ export default function SalesPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 50
   const [productStats, setProductStats] = useState<ProductStats | null>(null)
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
+  const [batchDelivering, setBatchDelivering] = useState(false)
+  const [selectedItemsDetails, setSelectedItemsDetails] = useState<SaleItem[]>([])
+  const [itemQuantities, setItemQuantities] = useState<Map<string, number>>(new Map())
+  const [showQuantityModal, setShowQuantityModal] = useState(false)
 
   const toggleCustomer = (customerKey: string) => {
     const newExpanded = new Set(expandedCustomers)

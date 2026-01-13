@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
         const allItemIds = allSaleItems?.map((item: any) => item.id) || []
 
         // 创建 sale_item_id -> ordered_quantity 映射
-        const orderedQuantityMap = new Map(
+        const orderedQuantityMap = new Map<string, number>(
           allSaleItems?.map((item: any) => [item.id, item.quantity]) || []
         )
 
