@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "失控ERP",
+  title: "測試ERP",
   description: "簡單好用的 ERP 系統",
   icons: {
     icon: '/icon-192.png',
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: '失控ERP',
+    title: '測試ERP',
   },
 };
 
