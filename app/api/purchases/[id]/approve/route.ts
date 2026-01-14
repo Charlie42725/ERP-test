@@ -125,10 +125,37 @@ export async function POST(
     // 4. Calculate total
     const total = items.reduce((sum, item) => sum + (item.quantity * item.cost), 0)
 
-    // 5. Manually update inventory for each item
+    // 取得進貨單號
+    const { data: purchaseData } = await (supabaseServer
+      .from('purchases') as any)
+      .select('purchase_no')
+      .eq('id', id)
+      .single()
+    const purchaseNo = purchaseData?.purchase_no || id
+
+    // 5. 寫入庫存日誌（trigger 會自動更新 products.stock）
     // Since purchase was in 'pending' status, inventory was not updated yet
     for (const item of updatedItems) {
-      // Get current product stock and avg_cost
+      // 寫入 inventory_logs，trigger 會自動更新 stock
+      const { error: logError } = await (supabaseServer
+        .from('inventory_logs') as any)
+        .insert({
+          product_id: item.product_id,
+          ref_type: 'purchase',
+          ref_id: id,
+          qty_change: item.quantity,
+          memo: `進貨批准入庫 - ${purchaseNo}`,
+        })
+
+      if (logError) {
+        console.error(`Failed to create inventory log for product ${item.product_id}:`, logError)
+        return NextResponse.json(
+          { ok: false, error: '庫存更新失敗：' + logError.message },
+          { status: 500 }
+        )
+      }
+
+      // 更新商品平均成本（stock 已由 trigger 更新）
       const { data: product } = await (supabaseServer
         .from('products') as any)
         .select('stock, avg_cost')
@@ -136,26 +163,27 @@ export async function POST(
         .single()
 
       if (product) {
-        const oldStock = product.stock
-        const oldAvgCost = product.avg_cost
-        const newStock = oldStock + item.quantity
+        const currentStock = product.stock  // trigger 已經更新過的庫存
+        const oldAvgCost = product.avg_cost || 0
 
-        // Calculate new average cost
+        // 使用加權平均計算新的平均成本
         let newAvgCost = oldAvgCost
-        if (newStock > 0) {
-          newAvgCost = ((oldStock * oldAvgCost) + (item.quantity * item.cost)) / newStock
+        if (currentStock > 0) {
+          const oldStock = currentStock - item.quantity
+          newAvgCost = ((oldStock * oldAvgCost) + (item.quantity * item.cost)) / currentStock
         }
 
-        // Update product stock and avg_cost
-        await (supabaseServer
+        // 只更新平均成本（stock 由 trigger 處理）
+        const { error: updateCostError } = await (supabaseServer
           .from('products') as any)
-          .update({
-            stock: newStock,
-            avg_cost: newAvgCost,
-          })
+          .update({ avg_cost: newAvgCost })
           .eq('id', item.product_id)
 
-        console.log(`Updated inventory for product ${item.product_id}: ${oldStock} -> ${newStock}, avg_cost: ${oldAvgCost} -> ${newAvgCost}`)
+        if (updateCostError) {
+          console.error(`Failed to update avg_cost for product ${item.product_id}:`, updateCostError)
+        } else {
+          console.log(`[Approve] Updated avg_cost for product ${item.product_id}: ${oldAvgCost.toFixed(2)} -> ${newAvgCost.toFixed(2)}`)
+        }
       }
     }
 

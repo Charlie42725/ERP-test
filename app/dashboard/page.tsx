@@ -21,6 +21,35 @@ type DashboardStats = {
     quantity: number
     total_cost: number
   }>
+  // 新增欄位
+  arAging?: {
+    current: number
+    days31_60: number
+    days61_90: number
+    over90: number
+    total: number
+  }
+  apAging?: {
+    current: number
+    days31_60: number
+    days61_90: number
+    over90: number
+    total: number
+  }
+  arOverdueList?: Array<{ partner_code: string; balance: number; days_overdue: number }>
+  apDueSoon?: Array<{ partner_code: string; balance: number; days_until_due: number }>
+  apOverdueList?: Array<{ partner_code: string; balance: number; days_overdue: number }>
+  inventory?: {
+    totalValue: number
+    totalQuantity: number
+  }
+  profitTrend?: Array<{
+    date: string
+    revenue: number
+    cost: number
+    grossProfit: number
+    grossMargin: number
+  }>
 }
 
 type RecentSale = {
@@ -250,6 +279,11 @@ export default function DashboardPage() {
         )
         .reduce((sum: number, a: any) => sum + a.balance, 0)
 
+      // Fetch extended dashboard data (新增指標)
+      const dashboardRes = await fetch('/api/finance/dashboard')
+      const dashboardData = await dashboardRes.json()
+      const extendedData = dashboardData.ok ? dashboardData.data : {}
+
       setStats({
         todaySales: totalSales,
         todayOrders: salesInRange.length,
@@ -262,6 +296,14 @@ export default function DashboardPage() {
         overdueAR,
         overdueAP,
         costBreakdown,
+        // 新增數據
+        arAging: extendedData.arAging,
+        apAging: extendedData.apAging,
+        arOverdueList: extendedData.arOverdueList,
+        apDueSoon: extendedData.apDueSoon,
+        apOverdueList: extendedData.apOverdueList,
+        inventory: extendedData.inventory,
+        profitTrend: extendedData.profitTrend,
       })
 
       // Fetch recent sales
@@ -295,21 +337,19 @@ export default function DashboardPage() {
           <div className="flex gap-2 mb-4">
             <button
               onClick={() => setReportMode('by_date')}
-              className={`flex-1 rounded-lg px-4 py-3 text-sm font-bold transition-all ${
-                reportMode === 'by_date'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
+              className={`flex-1 rounded-lg px-4 py-3 text-sm font-bold transition-all ${reportMode === 'by_date'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
             >
               📅 按日期查看
             </button>
             <button
               onClick={() => setReportMode('by_business_day')}
-              className={`flex-1 rounded-lg px-4 py-3 text-sm font-bold transition-all ${
-                reportMode === 'by_business_day'
-                  ? 'bg-green-600 text-white shadow-md'
-                  : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
+              className={`flex-1 rounded-lg px-4 py-3 text-sm font-bold transition-all ${reportMode === 'by_business_day'
+                ? 'bg-green-600 text-white shadow-md'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+                }`}
             >
               💼 按營業日查看
             </button>
@@ -320,66 +360,63 @@ export default function DashboardPage() {
         <div className="mb-6 rounded-lg bg-white dark:bg-gray-800 p-4 shadow">
           {reportMode === 'by_date' ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-100">
-                起始日期
-              </label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-100">
-                結束日期
-              </label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-100">
-                銷售通路
-              </label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setSourceFilter('all')}
-                  className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${
-                    sourceFilter === 'all'
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-100">
+                  起始日期
+                </label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-100">
+                  結束日期
+                </label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-900 dark:text-gray-100">
+                  銷售通路
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSourceFilter('all')}
+                    className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${sourceFilter === 'all'
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  全部
-                </button>
-                <button
-                  onClick={() => setSourceFilter('pos')}
-                  className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${
-                    sourceFilter === 'pos'
+                      }`}
+                  >
+                    全部
+                  </button>
+                  <button
+                    onClick={() => setSourceFilter('pos')}
+                    className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${sourceFilter === 'pos'
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  🏪 店裡
-                </button>
-                <button
-                  onClick={() => setSourceFilter('live')}
-                  className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${
-                    sourceFilter === 'live'
+                      }`}
+                  >
+                    🏪 店裡
+                  </button>
+                  <button
+                    onClick={() => setSourceFilter('live')}
+                    className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${sourceFilter === 'live'
                       ? 'bg-pink-600 text-white'
                       : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  📱 直播
-                </button>
+                      }`}
+                  >
+                    📱 直播
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
           ) : (
             // 按營業日模式
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -420,21 +457,19 @@ export default function DashboardPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setSourceFilter('pos')}
-                    className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${
-                      sourceFilter === 'pos'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-                    }`}
+                    className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${sourceFilter === 'pos'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+                      }`}
                   >
                     🏪 店裡
                   </button>
                   <button
                     onClick={() => setSourceFilter('live')}
-                    className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${
-                      sourceFilter === 'live'
-                        ? 'bg-pink-600 text-white'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-                    }`}
+                    className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${sourceFilter === 'live'
+                      ? 'bg-pink-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
+                      }`}
                   >
                     📱 直播
                   </button>
@@ -487,8 +522,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* KPI Cards - Row 2: AR/AP */}
-        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+        {/* KPI Cards - Row 2: AR/AP/庫存 */}
+        <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="rounded-lg bg-white dark:bg-gray-800 p-6 shadow">
             <div className="text-sm font-medium text-gray-900 dark:text-gray-100">應收帳款</div>
             <div className="mt-2 text-3xl font-bold text-blue-600">
@@ -512,7 +547,180 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+
+          <div className="rounded-lg bg-white dark:bg-gray-800 p-6 shadow">
+            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">📦 庫存總金額</div>
+            <div className="mt-2 text-3xl font-bold text-purple-600">
+              {formatCurrency(stats.inventory?.totalValue || 0)}
+            </div>
+            <div className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              總數量: {stats.inventory?.totalQuantity?.toLocaleString() || 0} 件
+            </div>
+          </div>
         </div>
+
+        {/* 帳齡分析與到期提醒 */}
+        <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {/* AR 帳齡分析 */}
+          <div className="rounded-lg bg-white dark:bg-gray-800 p-6 shadow">
+            <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">📊 應收帳款帳齡分析</h2>
+            {stats.arAging ? (
+              <div className="space-y-3">
+                <div className="flex justify-between items-center p-2 bg-green-50 dark:bg-green-900/20 rounded">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">0-30 天 (正常)</span>
+                  <span className="font-semibold text-green-600">{formatCurrency(stats.arAging.current)}</span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">31-60 天</span>
+                  <span className="font-semibold text-yellow-600">{formatCurrency(stats.arAging.days31_60)}</span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-orange-50 dark:bg-orange-900/20 rounded">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">61-90 天</span>
+                  <span className="font-semibold text-orange-600">{formatCurrency(stats.arAging.days61_90)}</span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">90 天以上 ⚠️</span>
+                  <span className="font-semibold text-red-600">{formatCurrency(stats.arAging.over90)}</span>
+                </div>
+                <div className="border-t pt-2 mt-2 flex justify-between items-center">
+                  <span className="font-medium text-gray-900 dark:text-gray-100">總計</span>
+                  <span className="font-bold text-blue-600">{formatCurrency(stats.arAging.total)}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-gray-500">無數據</p>
+            )}
+          </div>
+
+          {/* AP 帳齡分析 */}
+          <div className="rounded-lg bg-white dark:bg-gray-800 p-6 shadow">
+            <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">📊 應付帳款帳齡分析</h2>
+            {stats.apAging ? (
+              <div className="space-y-3">
+                <div className="flex justify-between items-center p-2 bg-green-50 dark:bg-green-900/20 rounded">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">0-30 天 (正常)</span>
+                  <span className="font-semibold text-green-600">{formatCurrency(stats.apAging.current)}</span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">31-60 天</span>
+                  <span className="font-semibold text-yellow-600">{formatCurrency(stats.apAging.days31_60)}</span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-orange-50 dark:bg-orange-900/20 rounded">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">61-90 天</span>
+                  <span className="font-semibold text-orange-600">{formatCurrency(stats.apAging.days61_90)}</span>
+                </div>
+                <div className="flex justify-between items-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">90 天以上 ⚠️</span>
+                  <span className="font-semibold text-red-600">{formatCurrency(stats.apAging.over90)}</span>
+                </div>
+                <div className="border-t pt-2 mt-2 flex justify-between items-center">
+                  <span className="font-medium text-gray-900 dark:text-gray-100">總計</span>
+                  <span className="font-bold text-orange-600">{formatCurrency(stats.apAging.total)}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-gray-500">無數據</p>
+            )}
+          </div>
+        </div>
+
+        {/* 到期提醒 */}
+        <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {/* AP 即將到期 */}
+          {stats.apDueSoon && stats.apDueSoon.length > 0 && (
+            <div className="rounded-lg bg-white dark:bg-gray-800 p-6 shadow border-l-4 border-yellow-500">
+              <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">⏰ 應付帳款即將到期 (7天內)</h2>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {stats.apDueSoon.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{item.partner_code}</span>
+                    <div className="text-right">
+                      <span className="font-semibold text-yellow-600">{formatCurrency(item.balance)}</span>
+                      <span className="ml-2 text-xs text-gray-500">
+                        ({item.days_until_due === 0 ? '今天' : `${item.days_until_due} 天後`})
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* AP 已逾期 */}
+          {stats.apOverdueList && stats.apOverdueList.length > 0 && (
+            <div className="rounded-lg bg-white dark:bg-gray-800 p-6 shadow border-l-4 border-red-500">
+              <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">🚨 應付帳款已逾期</h2>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {stats.apOverdueList.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{item.partner_code}</span>
+                    <div className="text-right">
+                      <span className="font-semibold text-red-600">{formatCurrency(item.balance)}</span>
+                      <span className="ml-2 text-xs text-gray-500">(逾期 {item.days_overdue} 天)</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* AR 逾期清單 */}
+          {stats.arOverdueList && stats.arOverdueList.length > 0 && (
+            <div className="rounded-lg bg-white dark:bg-gray-800 p-6 shadow border-l-4 border-red-500">
+              <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">🚨 應收帳款已逾期</h2>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {stats.arOverdueList.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center p-2 bg-red-50 dark:bg-red-900/20 rounded">
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{item.partner_code}</span>
+                    <div className="text-right">
+                      <span className="font-semibold text-red-600">{formatCurrency(item.balance)}</span>
+                      <span className="ml-2 text-xs text-gray-500">(逾期 {item.days_overdue} 天)</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 毛利率趨勢 */}
+        {stats.profitTrend && stats.profitTrend.length > 0 && (
+          <div className="mb-6 rounded-lg bg-white dark:bg-gray-800 p-6 shadow">
+            <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">📈 近7天毛利率趨勢</h2>
+            <div className="overflow-x-auto">
+              <div className="flex items-end gap-2 h-40 min-w-max">
+                {stats.profitTrend.map((day, index) => {
+                  const maxMargin = Math.max(...stats.profitTrend!.map(d => d.grossMargin), 1)
+                  const height = (day.grossMargin / maxMargin) * 100
+                  const dateLabel = new Date(day.date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })
+
+                  return (
+                    <div key={index} className="flex flex-col items-center flex-1 min-w-[60px]">
+                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        {day.grossMargin}%
+                      </span>
+                      <div
+                        className={`w-full rounded-t transition-all ${day.grossMargin >= 30 ? 'bg-green-500' :
+                            day.grossMargin >= 20 ? 'bg-yellow-500' :
+                              day.grossMargin >= 10 ? 'bg-orange-500' : 'bg-red-500'
+                          }`}
+                        style={{ height: `${Math.max(height, 5)}%` }}
+                        title={`營收: ${formatCurrency(day.revenue)}\n成本: ${formatCurrency(day.cost)}\n毛利: ${formatCurrency(day.grossProfit)}`}
+                      />
+                      <span className="text-xs text-gray-500 mt-1">{dateLabel}</span>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="mt-4 flex justify-between text-xs text-gray-500">
+                <span>🟢 ≥30%</span>
+                <span>🟡 20-30%</span>
+                <span>🟠 10-20%</span>
+                <span>🔴 &lt;10%</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Cost Breakdown */}
         {stats.costBreakdown && stats.costBreakdown.length > 0 && (
