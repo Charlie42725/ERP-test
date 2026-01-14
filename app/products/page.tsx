@@ -53,15 +53,32 @@ export default function ProductsPage() {
   const fetchLowStockProducts = async () => {
     setLoadingLowStock(true)
     try {
-      const res = await fetch('/api/products?active=true')
+      // 快取機制：5 分鐘
+      const CACHE_KEY = 'products_low_stock_cache'
+      const CACHE_EXPIRY_KEY = 'products_low_stock_cache_expiry'
+      const CACHE_DURATION = 5 * 60 * 1000 // 5 分鐘
+
+      const cached = localStorage.getItem(CACHE_KEY)
+      const expiry = localStorage.getItem(CACHE_EXPIRY_KEY)
+
+      if (cached && expiry && Date.now() < parseInt(expiry)) {
+        setLowStockProducts(JSON.parse(cached))
+        setLoadingLowStock(false)
+        return
+      }
+
+      // 使用分頁 API 並按庫存排序，只取庫存 < 10 的前 10 筆
+      const res = await fetch('/api/products?active=true&sortBy=stock&sortOrder=asc')
       const data = await res.json()
       if (data.ok) {
         const allProducts = data.data || []
         const lowStock = allProducts
           .filter((p: Product) => p.stock < 10)
-          .sort((a: Product, b: Product) => a.stock - b.stock)
           .slice(0, 10)
         setLowStockProducts(lowStock)
+        // 更新快取
+        localStorage.setItem(CACHE_KEY, JSON.stringify(lowStock))
+        localStorage.setItem(CACHE_EXPIRY_KEY, String(Date.now() + CACHE_DURATION))
       }
     } catch (err) {
       console.error('Failed to fetch low stock products:', err)
@@ -190,31 +207,28 @@ export default function ProductsPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setActiveFilter(null)}
-              className={`rounded px-4 py-1 font-medium ${
-                activeFilter === null
+              className={`rounded px-4 py-1 font-medium ${activeFilter === null
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
+                }`}
             >
               全部
             </button>
             <button
               onClick={() => setActiveFilter(true)}
-              className={`rounded px-4 py-1 font-medium ${
-                activeFilter === true
+              className={`rounded px-4 py-1 font-medium ${activeFilter === true
                   ? 'bg-green-600 text-white'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
+                }`}
             >
               上架
             </button>
             <button
               onClick={() => setActiveFilter(false)}
-              className={`rounded px-4 py-1 font-medium ${
-                activeFilter === false
+              className={`rounded px-4 py-1 font-medium ${activeFilter === false
                   ? 'bg-red-600 text-white'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
+                }`}
             >
               下架
             </button>
@@ -259,13 +273,12 @@ export default function ProductsPage() {
                       </div>
                       <div className="flex items-center gap-4">
                         <div
-                          className={`text-right font-semibold ${
-                            product.stock <= 3
+                          className={`text-right font-semibold ${product.stock <= 3
                               ? 'text-red-600 dark:text-red-400'
                               : product.stock <= 9
-                              ? 'text-orange-600 dark:text-orange-400'
-                              : 'text-gray-900 dark:text-gray-100'
-                          }`}
+                                ? 'text-orange-600 dark:text-orange-400'
+                                : 'text-gray-900 dark:text-gray-100'
+                            }`}
                         >
                           <div className="text-lg">{product.stock <= 3 && '⚠ '}剩餘 {product.stock}</div>
                           <div className="text-xs font-normal text-gray-900 dark:text-gray-400">
@@ -387,8 +400,8 @@ export default function ProductsPage() {
                             product.stock <= 3
                               ? 'font-semibold text-red-600 dark:text-red-400'
                               : product.stock <= 9
-                              ? 'font-semibold text-orange-600 dark:text-orange-400'
-                              : 'text-gray-900 dark:text-gray-100'
+                                ? 'font-semibold text-orange-600 dark:text-orange-400'
+                                : 'text-gray-900 dark:text-gray-100'
                           }
                         >
                           {product.stock <= 3 && '⚠ '}{product.stock}
@@ -397,26 +410,25 @@ export default function ProductsPage() {
                       <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                         {product.updated_at
                           ? (() => {
-                              const date = new Date(product.updated_at + 'Z')
-                              return date.toLocaleString('zh-TW', {
-                                year: 'numeric',
-                                month: '2-digit',
-                                day: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: false,
-                              })
-                            })()
+                            const date = new Date(product.updated_at + 'Z')
+                            return date.toLocaleString('zh-TW', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: false,
+                            })
+                          })()
                           : '-'
                         }
                       </td>
                       <td className="px-6 py-4 text-center text-sm">
                         <span
-                          className={`text-xs whitespace-nowrap ${
-                            product.is_active
+                          className={`text-xs whitespace-nowrap ${product.is_active
                               ? 'text-green-600 dark:text-green-400'
                               : 'text-gray-500 dark:text-gray-400'
-                          }`}
+                            }`}
                         >
                           {product.is_active ? '上架' : '下架'}
                         </span>
@@ -501,8 +513,8 @@ export default function ProductsPage() {
                       .filter(p => {
                         // Show first page, last page, current page, and pages around current
                         return p === 1 ||
-                               p === pagination.totalPages ||
-                               (p >= page - 2 && p <= page + 2)
+                          p === pagination.totalPages ||
+                          (p >= page - 2 && p <= page + 2)
                       })
                       .map((p, idx, arr) => {
                         // Add ellipsis if there's a gap
@@ -512,11 +524,10 @@ export default function ProductsPage() {
                             {showEllipsisBefore && <span className="px-2 text-gray-500 dark:text-gray-400">...</span>}
                             <button
                               onClick={() => handlePageChange(p)}
-                              className={`min-w-[2rem] rounded px-3 py-1 text-sm ${
-                                p === page
+                              className={`min-w-[2rem] rounded px-3 py-1 text-sm ${p === page
                                   ? 'bg-blue-600 text-white'
                                   : 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                              }`}
+                                }`}
                             >
                               {p}
                             </button>
