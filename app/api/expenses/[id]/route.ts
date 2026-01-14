@@ -130,15 +130,15 @@ export async function PUT(
 
     // 4. 重新記帳（使用 updateAccountBalance 確保一致性和冪等性）
     if (newAccountId) {
-      const result = await updateAccountBalance(
-        supabaseServer,
-        newAccountId,
-        newAmount,
-        'expense',
-        'expense',
-        id,
-        newExpense.note || undefined
-      )
+      const result = await updateAccountBalance({
+        supabase: supabaseServer,
+        accountId: newAccountId,
+        amount: newAmount,
+        direction: 'decrease',
+        transactionType: 'expense',
+        referenceId: id,
+        note: newExpense.note || undefined
+      })
 
       if (!result.success) {
         console.error(`[Expenses API] 費用 ${id} 記帳失敗:`, result.error)
