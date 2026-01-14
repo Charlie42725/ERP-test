@@ -251,38 +251,21 @@ export default function DashboardPage() {
       const grossProfit = totalSales - totalCost
       const netProfit = grossProfit - totalExpenses
 
-      // Fetch AR
-      const arRes = await fetch('/api/ar')
-      const arData = await arRes.json()
-      const arAccounts = arData.ok ? arData.data : []
-      const totalAR = arAccounts
-        .filter((a: any) => a.status !== 'paid')
-        .reduce((sum: number, a: any) => sum + a.balance, 0)
-      const overdueAR = arAccounts
-        .filter(
-          (a: any) =>
-            a.status !== 'paid' && new Date(a.due_date) < new Date()
-        )
-        .reduce((sum: number, a: any) => sum + a.balance, 0)
-
-      // Fetch AP
-      const apRes = await fetch('/api/ap')
-      const apData = await apRes.json()
-      const apAccounts = apData.ok ? apData.data : []
-      const totalAP = apAccounts
-        .filter((a: any) => a.status !== 'paid')
-        .reduce((sum: number, a: any) => sum + a.balance, 0)
-      const overdueAP = apAccounts
-        .filter(
-          (a: any) =>
-            a.status !== 'paid' && new Date(a.due_date) < new Date()
-        )
-        .reduce((sum: number, a: any) => sum + a.balance, 0)
-
-      // Fetch extended dashboard data (新增指標)
+      // Fetch extended dashboard data (包含 AR/AP 帳齡分析、庫存、毛利率趨勢)
+      // 優化：只呼叫一個 API，不再分別呼叫 /api/ar 和 /api/ap
       const dashboardRes = await fetch('/api/finance/dashboard')
       const dashboardData = await dashboardRes.json()
       const extendedData = dashboardData.ok ? dashboardData.data : {}
+
+      // 從帳齡分析數據中取得 AR/AP 總額和逾期金額
+      const totalAR = extendedData.arAging?.total || 0
+      const overdueAR = (extendedData.arAging?.days31_60 || 0) +
+        (extendedData.arAging?.days61_90 || 0) +
+        (extendedData.arAging?.over90 || 0)
+      const totalAP = extendedData.apAging?.total || 0
+      const overdueAP = (extendedData.apAging?.days31_60 || 0) +
+        (extendedData.apAging?.days61_90 || 0) +
+        (extendedData.apAging?.over90 || 0)
 
       setStats({
         todaySales: totalSales,
@@ -688,31 +671,34 @@ export default function DashboardPage() {
           <div className="mb-6 rounded-lg bg-white dark:bg-gray-800 p-6 shadow">
             <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">📈 近7天毛利率趨勢</h2>
             <div className="overflow-x-auto">
-              <div className="flex items-end gap-2 h-40 min-w-max">
+              <div className="flex items-end gap-4 min-w-max" style={{ height: '180px' }}>
                 {stats.profitTrend.map((day, index) => {
-                  const maxMargin = Math.max(...stats.profitTrend!.map(d => d.grossMargin), 1)
-                  const height = (day.grossMargin / maxMargin) * 100
+                  // 處理負數：取絕對值計算高度，但顏色區分正負
+                  const maxAbsMargin = Math.max(...stats.profitTrend!.map(d => Math.abs(d.grossMargin)), 1)
+                  const absHeight = (Math.abs(day.grossMargin) / maxAbsMargin) * 120
+                  const isNegative = day.grossMargin < 0
                   const dateLabel = new Date(day.date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })
 
                   return (
-                    <div key={index} className="flex flex-col items-center flex-1 min-w-[60px]">
-                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    <div key={index} className="flex flex-col items-center justify-end flex-1 min-w-[70px] h-full">
+                      <span className={`text-sm font-bold mb-2 ${isNegative ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'}`}>
                         {day.grossMargin}%
                       </span>
                       <div
-                        className={`w-full rounded-t transition-all ${day.grossMargin >= 30 ? 'bg-green-500' :
-                            day.grossMargin >= 20 ? 'bg-yellow-500' :
-                              day.grossMargin >= 10 ? 'bg-orange-500' : 'bg-red-500'
+                        className={`w-10 rounded-t transition-all ${isNegative ? 'bg-red-500' :
+                            day.grossMargin >= 30 ? 'bg-green-500' :
+                              day.grossMargin >= 20 ? 'bg-yellow-500' :
+                                day.grossMargin >= 10 ? 'bg-orange-500' : 'bg-red-400'
                           }`}
-                        style={{ height: `${Math.max(height, 5)}%` }}
+                        style={{ height: `${Math.max(absHeight, 8)}px` }}
                         title={`營收: ${formatCurrency(day.revenue)}\n成本: ${formatCurrency(day.cost)}\n毛利: ${formatCurrency(day.grossProfit)}`}
                       />
-                      <span className="text-xs text-gray-500 mt-1">{dateLabel}</span>
+                      <span className="text-xs text-gray-500 mt-2">{dateLabel}</span>
                     </div>
                   )
                 })}
               </div>
-              <div className="mt-4 flex justify-between text-xs text-gray-500">
+              <div className="mt-4 flex justify-center gap-6 text-xs text-gray-500">
                 <span>🟢 ≥30%</span>
                 <span>🟡 20-30%</span>
                 <span>🟠 10-20%</span>

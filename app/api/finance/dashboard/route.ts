@@ -223,41 +223,53 @@ export async function GET(request: NextRequest) {
       0
     ) || 0
 
-    // ========== 新增：近7天毛利率趨勢 ==========
-    const profitTrend: Array<{ date: string; revenue: number; cost: number; grossProfit: number; grossMargin: number }> = []
+    // ========== 新增：近7天毛利率趨勢（優化：單次查詢）==========
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0]
 
+    const { data: weekSales } = await (supabaseServer
+      .from('sales') as any)
+      .select('total, sale_date, sale_items(cost, quantity)')
+      .gte('sale_date', sevenDaysAgoStr)
+      .lte('sale_date', today + 'T23:59:59')
+      .eq('status', 'confirmed')
+
+    // 在 JavaScript 中分組計算每日毛利率
+    const dailyStats: Record<string, { revenue: number; cost: number }> = {}
+
+    // 初始化最近 7 天
     for (let i = 6; i >= 0; i--) {
-      const date = new Date()
-      date.setDate(date.getDate() - i)
-      const dateStr = date.toISOString().split('T')[0]
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      const dateStr = d.toISOString().split('T')[0]
+      dailyStats[dateStr] = { revenue: 0, cost: 0 }
+    }
 
-      const { data: daySales } = await (supabaseServer
-        .from('sales') as any)
-        .select('total, sale_items(cost, quantity)')
-        .gte('sale_date', dateStr)
-        .lte('sale_date', dateStr + 'T23:59:59')
-        .eq('status', 'confirmed')
-
-      const revenue = (daySales as any[])?.reduce((sum, s) => sum + s.total, 0) || 0
-      const cost = (daySales as any[])?.reduce((sum, s) => {
-        const saleCost = (s.sale_items || []).reduce(
-          (itemSum: number, item: any) => itemSum + (item.cost || 0) * item.quantity,
+    // 分組統計
+    ; (weekSales as any[])?.forEach(sale => {
+      const saleDate = sale.sale_date.split('T')[0]
+      if (dailyStats[saleDate]) {
+        dailyStats[saleDate].revenue += sale.total
+        const saleCost = (sale.sale_items || []).reduce(
+          (sum: number, item: any) => sum + (item.cost || 0) * item.quantity,
           0
         )
-        return sum + saleCost
-      }, 0) || 0
+        dailyStats[saleDate].cost += saleCost
+      }
+    })
 
-      const grossProfit = revenue - cost
-      const grossMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0
-
-      profitTrend.push({
-        date: dateStr,
-        revenue,
-        cost,
+    const profitTrend = Object.entries(dailyStats).map(([date, stats]) => {
+      const grossProfit = stats.revenue - stats.cost
+      const grossMargin = stats.revenue > 0 ? (grossProfit / stats.revenue) * 100 : 0
+      return {
+        date,
+        revenue: stats.revenue,
+        cost: stats.cost,
         grossProfit,
         grossMargin: Math.round(grossMargin * 10) / 10
-      })
-    }
+      }
+    })
 
     return NextResponse.json({
       ok: true,
