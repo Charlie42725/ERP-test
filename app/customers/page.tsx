@@ -14,6 +14,10 @@ export default function CustomersPage() {
   const [error, setError] = useState('')
   const [processing, setProcessing] = useState(false)
 
+  // 分頁狀態
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+
   // 购物金调整相关状态
   const [adjustingCustomer, setAdjustingCustomer] = useState<Customer | null>(null)
   const [adjustAmount, setAdjustAmount] = useState<string>('')
@@ -46,8 +50,13 @@ export default function CustomersPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
+    setCurrentPage(1) // 搜尋時重置到第一頁
     fetchCustomers()
   }
+
+  // 分頁計算
+  const totalPages = Math.ceil(customers.length / pageSize)
+  const paginatedCustomers = customers.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   const openEditModal = (customer: Customer) => {
     setEditingCustomer(customer)
@@ -212,31 +221,28 @@ export default function CustomersPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setActiveFilter(null)}
-              className={`rounded px-4 py-1 font-medium ${
-                activeFilter === null
+              className={`rounded px-4 py-1 font-medium ${activeFilter === null
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
+                }`}
             >
               全部
             </button>
             <button
               onClick={() => setActiveFilter(true)}
-              className={`rounded px-4 py-1 font-medium ${
-                activeFilter === true
+              className={`rounded px-4 py-1 font-medium ${activeFilter === true
                   ? 'bg-green-600 text-white'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
+                }`}
             >
               啟用
             </button>
             <button
               onClick={() => setActiveFilter(false)}
-              className={`rounded px-4 py-1 font-medium ${
-                activeFilter === false
+              className={`rounded px-4 py-1 font-medium ${activeFilter === false
                   ? 'bg-red-600 text-white'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
+                }`}
             >
               停用
             </button>
@@ -267,7 +273,7 @@ export default function CustomersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {customers.map((customer) => (
+                  {paginatedCustomers.map((customer) => (
                     <tr key={customer.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{customer.customer_code}</td>
                       <td className="px-4 py-3 text-sm font-semibold text-gray-900 dark:text-gray-100">{customer.customer_name}</td>
@@ -283,12 +289,11 @@ export default function CustomersPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-right">
-                        <span className={`font-bold ${
-                          customer.store_credit >= 0
+                        <span className={`font-bold ${customer.store_credit >= 0
                             ? 'text-green-600 dark:text-green-400'
                             : 'text-red-600 dark:text-red-400'
-                        }`}>
-                          ${customer.store_credit?.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) || '0.00'}
+                          }`}>
+                          ${customer.store_credit?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-center">
@@ -303,11 +308,10 @@ export default function CustomersPage() {
                       <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{customer.line_id || '-'}</td>
                       <td className="px-4 py-3 text-center text-sm">
                         <span
-                          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            customer.is_active
+                          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${customer.is_active
                               ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                          }`}
+                            }`}
                         >
                           {customer.is_active ? '啟用' : '停用'}
                         </span>
@@ -339,6 +343,47 @@ export default function CustomersPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* 分頁控制 */}
+          {!loading && customers.length > 0 && (
+            <div className="px-6 py-4 border-t dark:border-gray-700 flex items-center justify-between">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                共 {customers.length} 筆資料，顯示第 {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, customers.length)} 筆
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value))
+                    setCurrentPage(1)
+                  }}
+                  className="rounded border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm text-gray-900 dark:text-gray-100 dark:bg-gray-700"
+                >
+                  <option value={10}>10 筆/頁</option>
+                  <option value={20}>20 筆/頁</option>
+                  <option value={50}>50 筆/頁</option>
+                  <option value={100}>100 筆/頁</option>
+                </select>
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="rounded px-3 py-1 text-sm font-medium bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  上一頁
+                </button>
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="rounded px-3 py-1 text-sm font-medium bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  下一頁
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -527,11 +572,10 @@ export default function CustomersPage() {
               </div>
               <div>
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-300">當前餘額：</span>
-                <span className={`ml-2 text-lg font-bold ${
-                  adjustingCustomer.store_credit >= 0
+                <span className={`ml-2 text-lg font-bold ${adjustingCustomer.store_credit >= 0
                     ? 'text-green-600 dark:text-green-400'
                     : 'text-red-600 dark:text-red-400'
-                }`}>
+                  }`}>
                   ${adjustingCustomer.store_credit?.toFixed(2) || '0.00'}
                 </span>
               </div>

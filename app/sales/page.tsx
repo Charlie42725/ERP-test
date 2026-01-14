@@ -114,19 +114,19 @@ export default function SalesPage() {
       const data = await res.json()
       if (data.ok) {
         const allSales = data.data || []
-        
+
         // 計算商品統計（只在有商品關鍵字時）
         if (productKeyword && allSales.length > 0) {
           const stats: { [key: string]: ProductStats } = {}
           const customerMap: { [productKey: string]: { [customerKey: string]: { customer_name: string, customer_code: string | null, quantity: number, sales_count: number } } } = {}
-          
+
           allSales.forEach((sale: Sale) => {
             if (sale.sale_items) {
               sale.sale_items.forEach((item: SaleItem) => {
                 const productKey = `${item.product_id}`
                 const customerKey = sale.customer_code || 'WALK_IN'
                 const customerName = sale.customer_code ? (sale.customers?.customer_name || sale.customer_code) : '散客'
-                
+
                 // 初始化商品統計
                 if (!stats[productKey]) {
                   stats[productKey] = {
@@ -138,11 +138,11 @@ export default function SalesPage() {
                   }
                   customerMap[productKey] = {}
                 }
-                
+
                 // 累加總數量和總銷售額
                 stats[productKey].total_quantity += item.quantity
                 stats[productKey].total_sales += item.quantity * item.price
-                
+
                 // 累加客戶購買記錄
                 if (!customerMap[productKey][customerKey]) {
                   customerMap[productKey][customerKey] = {
@@ -157,20 +157,20 @@ export default function SalesPage() {
               })
             }
           })
-          
+
           // 轉換客戶購買記錄為陣列並排序
           Object.keys(stats).forEach(productKey => {
             stats[productKey].customer_purchases = Object.values(customerMap[productKey])
               .sort((a, b) => b.quantity - a.quantity)
           })
-          
+
           // 取第一個商品的統計（如果搜尋結果有多個商品，顯示第一個）
           const firstProduct = Object.values(stats)[0]
           setProductStats(firstProduct || null)
         } else {
           setProductStats(null)
         }
-        
+
         if (groupByCustomer) {
           // 按客戶分組
           const groups: { [key: string]: CustomerGroup } = {}
@@ -182,11 +182,11 @@ export default function SalesPage() {
             }
 
             const key = sale.customer_code || 'WALK_IN'
-            
+
             if (!groups[key]) {
               groups[key] = {
                 customer_code: sale.customer_code,
-                customer_name: sale.customer_code 
+                customer_name: sale.customer_code
                   ? (sale.customers?.customer_name || sale.customer_code)
                   : '散客',
                 sales: [],
@@ -207,10 +207,10 @@ export default function SalesPage() {
           setCustomerGroups(Object.values(groups))
         } else {
           // 不分组，直接显示列表，但根据showUndeliveredOnly过滤
-          const filteredSales = showUndeliveredOnly 
+          const filteredSales = showUndeliveredOnly
             ? allSales.filter((s: Sale) => s.fulfillment_status !== 'completed')
             : allSales
-          
+
           // 用单个组包装所有销售
           setCustomerGroups([{
             customer_code: null,
@@ -238,10 +238,6 @@ export default function SalesPage() {
   }
 
   const handleDelete = async (id: string, saleNo: string) => {
-    if (!confirm(`確定要刪除銷售單 ${saleNo} 嗎？\n\n此操作將會回補庫存，且無法復原。`)) {
-      return
-    }
-
     setDeleting(id)
     try {
       const res = await fetch(`/api/sales/${id}`, {
@@ -452,33 +448,30 @@ export default function SalesPage() {
                   <button
                     type="button"
                     onClick={() => setSourceFilter('all')}
-                    className={`flex-1 rounded px-4 py-2 text-sm font-medium transition-colors ${
-                      sourceFilter === 'all'
+                    className={`flex-1 rounded px-4 py-2 text-sm font-medium transition-colors ${sourceFilter === 'all'
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-                    }`}
+                      }`}
                   >
                     全部
                   </button>
                   <button
                     type="button"
                     onClick={() => setSourceFilter('pos')}
-                    className={`flex-1 rounded px-4 py-2 text-sm font-medium transition-colors ${
-                      sourceFilter === 'pos'
+                    className={`flex-1 rounded px-4 py-2 text-sm font-medium transition-colors ${sourceFilter === 'pos'
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-                    }`}
+                      }`}
                   >
                     🏪 店裡
                   </button>
                   <button
                     type="button"
                     onClick={() => setSourceFilter('live')}
-                    className={`flex-1 rounded px-4 py-2 text-sm font-medium transition-colors ${
-                      sourceFilter === 'live'
+                    className={`flex-1 rounded px-4 py-2 text-sm font-medium transition-colors ${sourceFilter === 'live'
                         ? 'bg-pink-600 text-white'
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-                    }`}
+                      }`}
                   >
                     📱 直播
                   </button>
@@ -521,7 +514,7 @@ export default function SalesPage() {
               </h4>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {productStats.customer_purchases.map((customer, index) => (
-                  <div 
+                  <div
                     key={`${customer.customer_code || 'WALK_IN'}-${index}`}
                     className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-3 shadow-sm"
                   >
@@ -560,7 +553,7 @@ export default function SalesPage() {
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {customerGroups.map((group) => {
                 const isExpanded = expandedCustomers.has(group.customer_code || 'WALK_IN')
-                
+
                 return (
                   <div key={group.customer_code || 'WALK_IN'}>
                     {/* Customer Header */}
@@ -581,7 +574,7 @@ export default function SalesPage() {
                           </span>
                         )}
                       </div>
-                      
+
                       <div className="flex items-center gap-4">
                         <div className="text-right">
                           <div className="text-sm text-gray-500 dark:text-gray-400">待出貨</div>
@@ -638,34 +631,32 @@ export default function SalesPage() {
                                   </td>
                                   <td className="py-2 text-center text-sm">
                                     <span
-                                      className={`inline-flex items-center gap-1 text-xs ${
-                                        sale.is_paid
+                                      className={`inline-flex items-center gap-1 text-xs ${sale.is_paid
                                           ? 'text-green-600 dark:text-green-400'
                                           : 'text-gray-500 dark:text-gray-400'
-                                      }`}
+                                        }`}
                                     >
                                       {sale.is_paid ? '✓ 已收' : '○ 未收'}
                                     </span>
                                   </td>
                                   <td className="py-2 text-center text-sm">
                                     <span
-                                      className={`inline-flex items-center gap-1 text-xs ${
-                                        sale.fulfillment_status === 'completed'
+                                      className={`inline-flex items-center gap-1 text-xs ${sale.fulfillment_status === 'completed'
                                           ? 'text-blue-600 dark:text-blue-400'
                                           : sale.fulfillment_status === 'partial'
-                                          ? 'text-amber-600 dark:text-amber-400'
-                                          : sale.fulfillment_status === 'none'
-                                          ? 'text-gray-500 dark:text-gray-400'
-                                          : 'text-gray-400'
-                                      }`}
+                                            ? 'text-amber-600 dark:text-amber-400'
+                                            : sale.fulfillment_status === 'none'
+                                              ? 'text-gray-500 dark:text-gray-400'
+                                              : 'text-gray-400'
+                                        }`}
                                     >
                                       {sale.fulfillment_status === 'completed'
                                         ? '🚚 已出貨'
                                         : sale.fulfillment_status === 'partial'
-                                        ? '⚡ 部分出貨'
-                                        : sale.fulfillment_status === 'none'
-                                        ? '• 未出貨'
-                                        : '? 舊資料'}
+                                          ? '⚡ 部分出貨'
+                                          : sale.fulfillment_status === 'none'
+                                            ? '• 未出貨'
+                                            : '? 舊資料'}
                                     </span>
                                   </td>
                                   <td className="py-2 text-center text-sm">
@@ -709,44 +700,44 @@ export default function SalesPage() {
                                             const deliveredQty = item.delivered_quantity || 0
                                             const remainingQty = item.quantity - deliveredQty
                                             return (
-                                            <tr key={item.id}>
-                                              <td className="py-1 text-gray-700 dark:text-gray-300">{item.products.item_code}</td>
-                                              <td className="py-1 text-gray-700 dark:text-gray-300">{item.snapshot_name}</td>
-                                              <td className="py-1 text-right text-gray-700 dark:text-gray-300">
-                                                {item.quantity} {item.products.unit}
-                                              </td>
-                                              <td className="py-1 text-right">
-                                                <span
-                                                  className={`font-medium ${
-                                                    item.is_delivered
-                                                      ? 'text-green-600 dark:text-green-400'
-                                                      : deliveredQty > 0
-                                                      ? 'text-yellow-600 dark:text-yellow-400'
-                                                      : 'text-gray-600 dark:text-gray-400'
-                                                  }`}
-                                                >
-                                                  {deliveredQty} / {item.quantity}
-                                                </span>
-                                              </td>
-                                              <td className="py-1 text-right text-gray-700 dark:text-gray-300">
-                                                {formatCurrency(item.price)}
-                                              </td>
-                                              <td className="py-1 text-right text-gray-700 dark:text-gray-300">
-                                                {formatCurrency(item.price * item.quantity)}
-                                              </td>
-                                              <td className="py-1 text-center">
-                                                {!item.is_delivered && (
-                                                  <button
-                                                    onClick={() => handleDeliverItem(item)}
-                                                    disabled={delivering === item.id}
-                                                    className="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700 disabled:bg-gray-400"
+                                              <tr key={item.id}>
+                                                <td className="py-1 text-gray-700 dark:text-gray-300">{item.products.item_code}</td>
+                                                <td className="py-1 text-gray-700 dark:text-gray-300">{item.snapshot_name}</td>
+                                                <td className="py-1 text-right text-gray-700 dark:text-gray-300">
+                                                  {item.quantity} {item.products.unit}
+                                                </td>
+                                                <td className="py-1 text-right">
+                                                  <span
+                                                    className={`font-medium ${item.is_delivered
+                                                        ? 'text-green-600 dark:text-green-400'
+                                                        : deliveredQty > 0
+                                                          ? 'text-yellow-600 dark:text-yellow-400'
+                                                          : 'text-gray-600 dark:text-gray-400'
+                                                      }`}
                                                   >
-                                                    {delivering === item.id ? '處理中...' : '出貨'}
-                                                  </button>
-                                                )}
-                                              </td>
-                                            </tr>
-                                          )})}
+                                                    {deliveredQty} / {item.quantity}
+                                                  </span>
+                                                </td>
+                                                <td className="py-1 text-right text-gray-700 dark:text-gray-300">
+                                                  {formatCurrency(item.price)}
+                                                </td>
+                                                <td className="py-1 text-right text-gray-700 dark:text-gray-300">
+                                                  {formatCurrency(item.price * item.quantity)}
+                                                </td>
+                                                <td className="py-1 text-center">
+                                                  {!item.is_delivered && (
+                                                    <button
+                                                      onClick={() => handleDeliverItem(item)}
+                                                      disabled={delivering === item.id}
+                                                      className="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700 disabled:bg-gray-400"
+                                                    >
+                                                      {delivering === item.id ? '處理中...' : '出貨'}
+                                                    </button>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                            )
+                                          })}
                                         </tbody>
                                       </table>
                                     </td>
@@ -798,160 +789,157 @@ export default function SalesPage() {
                       const startIndex = (currentPage - 1) * itemsPerPage
                       const endIndex = startIndex + itemsPerPage
                       const paginatedSales = allSales.slice(startIndex, endIndex)
-                      
+
                       return paginatedSales.map((sale) => (
-                    <React.Fragment key={sale.id}>
-                      <tr
-                        className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                        onClick={() => toggleSale(sale.id)}
-                      >
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
-                          <div className="flex items-center gap-2">
-                            <span className="text-gray-400 text-xs">
-                              {expandedSales.has(sale.id) ? '▾' : '▸'}
-                            </span>
-                            {sale.sale_no}
-                            {sale.note && sale.note.trim() !== '' && (
-                              <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded" title={sale.note}>
-                                備註
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
-                          {sale.customers?.customer_name || '散客'}
-                        </td>
-                        <td className={`px-6 py-4 text-right text-lg font-semibold ${
-                          sale.total > 0 
-                            ? 'text-gray-900 dark:text-gray-100' 
-                            : 'text-gray-400 dark:text-gray-500'
-                        }`}>
-                          {formatCurrency(sale.total)}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                          {sale.item_count || 0} 項 / {sale.total_quantity || 0} 件
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
-                          {formatPaymentMethod(sale.payment_method)}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{formatDateTime(sale.created_at)}</td>
-                        <td className="px-6 py-4 text-center text-sm">
-                          <span
-                            className={`inline-flex items-center gap-1 text-xs ${
-                              sale.is_paid
-                                ? 'text-green-600 dark:text-green-400'
-                                : 'text-gray-500 dark:text-gray-400'
-                            }`}
+                        <React.Fragment key={sale.id}>
+                          <tr
+                            className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                            onClick={() => toggleSale(sale.id)}
                           >
-                            {sale.is_paid ? '✓ 已收' : '○ 未收'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-center text-sm">
-                          <span
-                            className={`inline-flex items-center gap-1 text-xs ${
-                              sale.fulfillment_status === 'completed'
-                                ? 'text-blue-600 dark:text-blue-400'
-                                : sale.fulfillment_status === 'partial'
-                                ? 'text-amber-600 dark:text-amber-400'
-                                : sale.fulfillment_status === 'none'
-                                ? 'text-gray-500 dark:text-gray-400'
-                                : 'text-gray-400'
-                            }`}
-                          >
-                            {sale.fulfillment_status === 'completed'
-                              ? '🚚 已出貨'
-                              : sale.fulfillment_status === 'partial'
-                              ? '⚡ 部分出貨'
-                              : sale.fulfillment_status === 'none'
-                              ? '• 未出貨'
-                              : '? 舊資料'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-center text-sm" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={() => {
-                              if (confirm(`確定要作廢銷售單 ${sale.sale_no} 嗎？\n\n此操作將會回補庫存，且無法復原。`)) {
-                                handleDelete(sale.id, sale.sale_no)
-                              }
-                            }}
-                            disabled={deleting === sale.id}
-                            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-lg font-bold disabled:opacity-50"
-                            title="更多操作"
-                          >
-                            {deleting === sale.id ? '...' : '⋯'}
-                          </button>
-                        </td>
-                      </tr>
-                      {expandedSales.has(sale.id) && sale.sale_items && (
-                        <tr key={`${sale.id}-details`}>
-                          <td colSpan={9} className="bg-gray-50 dark:bg-gray-900 px-6 py-4">
-                            <div className="ml-8 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <h4 className="font-semibold text-gray-900 dark:text-gray-100">銷售明細</h4>
+                            <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-400 text-xs">
+                                  {expandedSales.has(sale.id) ? '▾' : '▸'}
+                                </span>
+                                {sale.sale_no}
+                                {sale.note && sale.note.trim() !== '' && (
+                                  <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded" title={sale.note}>
+                                    備註
+                                  </span>
+                                )}
                               </div>
-                              <table className="w-full">
-                                <thead className="border-b">
-                                  <tr>
-                                    <th className="pb-2 text-left text-xs font-semibold text-gray-900 dark:text-gray-100">品號</th>
-                                    <th className="pb-2 text-left text-xs font-semibold text-gray-900 dark:text-gray-100">商品名稱</th>
-                                    <th className="pb-2 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">訂單數量</th>
-                                    <th className="pb-2 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">已出貨</th>
-                                    <th className="pb-2 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">售價</th>
-                                    <th className="pb-2 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">小計</th>
-                                    <th className="pb-2 text-center text-xs font-semibold text-gray-900 dark:text-gray-100">操作</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y">
-                                  {sale.sale_items.map((item) => {
-                                    const deliveredQty = item.delivered_quantity || 0
-                                    const remainingQty = item.quantity - deliveredQty
-                                    return (
-                                    <tr key={item.id}>
-                                      <td className="py-2 text-sm text-gray-900 dark:text-gray-100">{item.products.item_code}</td>
-                                      <td className="py-2 text-sm text-gray-900 dark:text-gray-100">{item.snapshot_name}</td>
-                                      <td className="py-2 text-right text-sm text-gray-900 dark:text-gray-100">
-                                        {item.quantity} {item.products.unit}
-                                      </td>
-                                      <td className="py-2 text-right text-sm">
-                                        <span
-                                          className={`font-medium ${
-                                            item.is_delivered
-                                              ? 'text-green-600 dark:text-green-400'
-                                              : deliveredQty > 0
-                                              ? 'text-yellow-600 dark:text-yellow-400'
-                                              : 'text-gray-600 dark:text-gray-400'
-                                          }`}
-                                        >
-                                          {deliveredQty} / {item.quantity}
-                                        </span>
-                                      </td>
-                                      <td className="py-2 text-right text-sm text-gray-900 dark:text-gray-100">
-                                        {formatCurrency(item.price)}
-                                      </td>
-                                      <td className="py-2 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                        {formatCurrency(item.quantity * item.price)}
-                                      </td>
-                                      <td className="py-2 text-center">
-                                        {!item.is_delivered && (
-                                          <button
-                                            onClick={() => handleDeliverItem(item)}
-                                            disabled={delivering === item.id}
-                                            className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700 disabled:bg-gray-400"
-                                          >
-                                            {delivering === item.id ? '處理中...' : '出貨'}
-                                          </button>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  )})}
-                                </tbody>
-                              </table>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  ))
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                              {sale.customers?.customer_name || '散客'}
+                            </td>
+                            <td className={`px-6 py-4 text-right text-lg font-semibold ${sale.total > 0
+                                ? 'text-gray-900 dark:text-gray-100'
+                                : 'text-gray-400 dark:text-gray-500'
+                              }`}>
+                              {formatCurrency(sale.total)}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                              {sale.item_count || 0} 項 / {sale.total_quantity || 0} 件
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                              {formatPaymentMethod(sale.payment_method)}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{formatDateTime(sale.created_at)}</td>
+                            <td className="px-6 py-4 text-center text-sm">
+                              <span
+                                className={`inline-flex items-center gap-1 text-xs ${sale.is_paid
+                                    ? 'text-green-600 dark:text-green-400'
+                                    : 'text-gray-500 dark:text-gray-400'
+                                  }`}
+                              >
+                                {sale.is_paid ? '✓ 已收' : '○ 未收'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-center text-sm">
+                              <span
+                                className={`inline-flex items-center gap-1 text-xs ${sale.fulfillment_status === 'completed'
+                                    ? 'text-blue-600 dark:text-blue-400'
+                                    : sale.fulfillment_status === 'partial'
+                                      ? 'text-amber-600 dark:text-amber-400'
+                                      : sale.fulfillment_status === 'none'
+                                        ? 'text-gray-500 dark:text-gray-400'
+                                        : 'text-gray-400'
+                                  }`}
+                              >
+                                {sale.fulfillment_status === 'completed'
+                                  ? '🚚 已出貨'
+                                  : sale.fulfillment_status === 'partial'
+                                    ? '⚡ 部分出貨'
+                                    : sale.fulfillment_status === 'none'
+                                      ? '• 未出貨'
+                                      : '? 舊資料'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-center text-sm" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => {
+                                  if (confirm(`確定要作廢銷售單 ${sale.sale_no} 嗎？\n\n此操作將會回補庫存，且無法復原。`)) {
+                                    handleDelete(sale.id, sale.sale_no)
+                                  }
+                                }}
+                                disabled={deleting === sale.id}
+                                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-lg font-bold disabled:opacity-50"
+                                title="更多操作"
+                              >
+                                {deleting === sale.id ? '...' : '⋯'}
+                              </button>
+                            </td>
+                          </tr>
+                          {expandedSales.has(sale.id) && sale.sale_items && (
+                            <tr key={`${sale.id}-details`}>
+                              <td colSpan={9} className="bg-gray-50 dark:bg-gray-900 px-6 py-4">
+                                <div className="ml-8 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <h4 className="font-semibold text-gray-900 dark:text-gray-100">銷售明細</h4>
+                                  </div>
+                                  <table className="w-full">
+                                    <thead className="border-b">
+                                      <tr>
+                                        <th className="pb-2 text-left text-xs font-semibold text-gray-900 dark:text-gray-100">品號</th>
+                                        <th className="pb-2 text-left text-xs font-semibold text-gray-900 dark:text-gray-100">商品名稱</th>
+                                        <th className="pb-2 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">訂單數量</th>
+                                        <th className="pb-2 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">已出貨</th>
+                                        <th className="pb-2 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">售價</th>
+                                        <th className="pb-2 text-right text-xs font-semibold text-gray-900 dark:text-gray-100">小計</th>
+                                        <th className="pb-2 text-center text-xs font-semibold text-gray-900 dark:text-gray-100">操作</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                      {sale.sale_items.map((item) => {
+                                        const deliveredQty = item.delivered_quantity || 0
+                                        const remainingQty = item.quantity - deliveredQty
+                                        return (
+                                          <tr key={item.id}>
+                                            <td className="py-2 text-sm text-gray-900 dark:text-gray-100">{item.products.item_code}</td>
+                                            <td className="py-2 text-sm text-gray-900 dark:text-gray-100">{item.snapshot_name}</td>
+                                            <td className="py-2 text-right text-sm text-gray-900 dark:text-gray-100">
+                                              {item.quantity} {item.products.unit}
+                                            </td>
+                                            <td className="py-2 text-right text-sm">
+                                              <span
+                                                className={`font-medium ${item.is_delivered
+                                                    ? 'text-green-600 dark:text-green-400'
+                                                    : deliveredQty > 0
+                                                      ? 'text-yellow-600 dark:text-yellow-400'
+                                                      : 'text-gray-600 dark:text-gray-400'
+                                                  }`}
+                                              >
+                                                {deliveredQty} / {item.quantity}
+                                              </span>
+                                            </td>
+                                            <td className="py-2 text-right text-sm text-gray-900 dark:text-gray-100">
+                                              {formatCurrency(item.price)}
+                                            </td>
+                                            <td className="py-2 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                              {formatCurrency(item.quantity * item.price)}
+                                            </td>
+                                            <td className="py-2 text-center">
+                                              {!item.is_delivered && (
+                                                <button
+                                                  onClick={() => handleDeliverItem(item)}
+                                                  disabled={delivering === item.id}
+                                                  className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700 disabled:bg-gray-400"
+                                                >
+                                                  {delivering === item.id ? '處理中...' : '出貨'}
+                                                </button>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        )
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      ))
                     })()}
                   </tbody>
                 </table>
@@ -961,58 +949,57 @@ export default function SalesPage() {
               {(() => {
                 const allSales = customerGroups[0]?.sales || []
                 const totalPages = Math.ceil(allSales.length / itemsPerPage)
-              
-              if (totalPages <= 1) return null
 
-              return (
-                <div className="mt-4 flex items-center justify-center gap-2">
-                  <button
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="rounded bg-gray-200 dark:bg-gray-700 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    上一頁
-                  </button>
-                  
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
-                      // 顯示前 3 頁、當前頁周圍、最後 3 頁
-                      const showPage = page <= 3 || page > totalPages - 3 || Math.abs(page - currentPage) <= 1
-                      const showEllipsis = (page === 4 && currentPage > 5) || (page === totalPages - 3 && currentPage < totalPages - 4)
-                      
-                      if (showEllipsis) {
-                        return <span key={page} className="px-2 text-gray-500">...</span>
-                      }
-                      
-                      if (!showPage) return null
-                      
-                      return (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`min-w-[2.5rem] rounded px-3 py-2 text-sm font-medium ${
-                            currentPage === page
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      )
-                    })}
+                if (totalPages <= 1) return null
+
+                return (
+                  <div className="mt-4 flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="rounded bg-gray-200 dark:bg-gray-700 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      上一頁
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
+                        // 顯示前 3 頁、當前頁周圍、最後 3 頁
+                        const showPage = page <= 3 || page > totalPages - 3 || Math.abs(page - currentPage) <= 1
+                        const showEllipsis = (page === 4 && currentPage > 5) || (page === totalPages - 3 && currentPage < totalPages - 4)
+
+                        if (showEllipsis) {
+                          return <span key={page} className="px-2 text-gray-500">...</span>
+                        }
+
+                        if (!showPage) return null
+
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`min-w-[2.5rem] rounded px-3 py-2 text-sm font-medium ${currentPage === page
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                              }`}
+                          >
+                            {page}
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="rounded bg-gray-200 dark:bg-gray-700 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      下一頁
+                    </button>
                   </div>
-                  
-                  <button
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="rounded bg-gray-200 dark:bg-gray-700 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    下一頁
-                  </button>
-                </div>
-              )
-            })()}
-          </>
+                )
+              })()}
+            </>
           )}
         </div>
       </div>

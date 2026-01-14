@@ -14,6 +14,10 @@ export default function VendorsPage() {
   const [error, setError] = useState('')
   const [processing, setProcessing] = useState(false)
 
+  // 分頁狀態
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+
   const fetchVendors = async () => {
     setLoading(true)
     try {
@@ -39,8 +43,13 @@ export default function VendorsPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
+    setCurrentPage(1) // 搜尋時重置到第一頁
     fetchVendors()
   }
+
+  // 分頁計算
+  const totalPages = Math.ceil(vendors.length / pageSize)
+  const paginatedVendors = vendors.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   const openEditModal = (vendor: Vendor) => {
     setEditingVendor(vendor)
@@ -140,31 +149,28 @@ export default function VendorsPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setActiveFilter(null)}
-              className={`rounded px-4 py-1 font-medium ${
-                activeFilter === null
+              className={`rounded px-4 py-1 font-medium ${activeFilter === null
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
+                }`}
             >
               全部
             </button>
             <button
               onClick={() => setActiveFilter(true)}
-              className={`rounded px-4 py-1 font-medium ${
-                activeFilter === true
+              className={`rounded px-4 py-1 font-medium ${activeFilter === true
                   ? 'bg-green-600 text-white'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
+                }`}
             >
               啟用
             </button>
             <button
               onClick={() => setActiveFilter(false)}
-              className={`rounded px-4 py-1 font-medium ${
-                activeFilter === false
+              className={`rounded px-4 py-1 font-medium ${activeFilter === false
                   ? 'bg-red-600 text-white'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
+                }`}
             >
               停用
             </button>
@@ -193,7 +199,7 @@ export default function VendorsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {vendors.map((vendor) => (
+                  {paginatedVendors.map((vendor) => (
                     <tr key={vendor.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{vendor.vendor_code}</td>
                       <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">{vendor.vendor_name}</td>
@@ -203,11 +209,10 @@ export default function VendorsPage() {
                       <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">{vendor.payment_terms || '-'}</td>
                       <td className="px-6 py-4 text-center text-sm">
                         <span
-                          className={`inline-block rounded px-2 py-1 text-xs ${
-                            vendor.is_active
+                          className={`inline-block rounded px-2 py-1 text-xs ${vendor.is_active
                               ? 'bg-green-100 text-green-800'
                               : 'bg-red-100 text-red-800'
-                          }`}
+                            }`}
                         >
                           {vendor.is_active ? '啟用' : '停用'}
                         </span>
@@ -232,6 +237,47 @@ export default function VendorsPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* 分頁控制 */}
+          {!loading && vendors.length > 0 && (
+            <div className="px-6 py-4 border-t dark:border-gray-700 flex items-center justify-between">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                共 {vendors.length} 筆資料，顯示第 {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, vendors.length)} 筆
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value))
+                    setCurrentPage(1)
+                  }}
+                  className="rounded border border-gray-300 dark:border-gray-600 px-2 py-1 text-sm text-gray-900 dark:text-gray-100 dark:bg-gray-700"
+                >
+                  <option value={10}>10 筆/頁</option>
+                  <option value={20}>20 筆/頁</option>
+                  <option value={50}>50 筆/頁</option>
+                  <option value={100}>100 筆/頁</option>
+                </select>
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="rounded px-3 py-1 text-sm font-medium bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  上一頁
+                </button>
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="rounded px-3 py-1 text-sm font-medium bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  下一頁
+                </button>
+              </div>
             </div>
           )}
         </div>

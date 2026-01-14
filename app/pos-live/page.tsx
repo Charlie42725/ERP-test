@@ -324,7 +324,7 @@ export default function POSPage() {
     // Determine if this is an ichiban kuji item
     const ichibanInfo = typeof quantityOrInfo === 'object' ? quantityOrInfo : undefined
     const quantity = typeof quantityOrInfo === 'number' ? quantityOrInfo : 1
-    
+
     setCart((prev) => {
       // For ichiban kuji, don't stack quantities
       if (ichibanInfo) {
@@ -562,20 +562,20 @@ export default function POSPage() {
   }
 
   const cartWithComboPrice = applyComboPrice()
-  
+
   // Group ichiban items by kuji_id for display
   const displayCart: (CartItem & { groupedCount?: number, indices?: number[] })[] = []
   const processedIndices = new Set<number>()
-  
+
   cartWithComboPrice.forEach((item, index) => {
     if (processedIndices.has(index)) return
-    
+
     if (item.ichiban_kuji_id) {
       // Find all items with same kuji_id
       const sameKujiIndices: number[] = []
       let totalQuantity = 0
       let totalPrice = 0
-      
+
       cartWithComboPrice.forEach((otherItem, otherIndex) => {
         if (otherItem.ichiban_kuji_id === item.ichiban_kuji_id && !processedIndices.has(otherIndex)) {
           sameKujiIndices.push(otherIndex)
@@ -584,7 +584,7 @@ export default function POSPage() {
           processedIndices.add(otherIndex)
         }
       })
-      
+
       // Create merged item
       const kuji = ichibanKujis.find(k => k.id === item.ichiban_kuji_id)
       displayCart.push({
@@ -604,7 +604,7 @@ export default function POSPage() {
       processedIndices.add(index)
     }
   })
-  
+
   const subtotal = cartWithComboPrice.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
   let discountAmount = 0
@@ -936,1287 +936,1260 @@ export default function POSPage() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: scrollbarStyles }} />
-      <div className="h-screen bg-gray-100 dark:bg-gray-900 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className={`border-b-2 border-gray-300 dark:border-gray-700 px-6 py-4 flex items-center justify-between ${
-          salesMode === 'live'
-            ? 'bg-purple-600 dark:bg-purple-800'
-            : 'bg-white dark:bg-gray-800'
-        }`}>
-        <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold text-white">
-            📱 直播收銀系統
-          </h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowDrafts(!showDrafts)}
-            className={`font-bold px-4 py-2 rounded-lg transition-all relative ${
-              salesMode === 'live'
-                ? 'bg-purple-400 hover:bg-purple-300 text-purple-900'
-                : 'bg-orange-600 hover:bg-orange-700 text-white'
-            }`}
-          >
-            暫存訂單
-            {drafts.length > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center">
-                {drafts.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setShowTodaySales(!showTodaySales)}
-            className={`font-bold px-4 py-2 rounded-lg transition-all ${
-              salesMode === 'live'
-                ? 'bg-purple-400 hover:bg-purple-300 text-purple-900'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
-            }`}
-          >
-            當日交易
-          </button>
-          <button
-            onClick={async () => {
-              // 打開日結對話框前，先重新獲取最新統計數據
-              await fetchClosingStats()
-              setShowClosingModal(true)
-            }}
-            className="font-bold px-4 py-2 rounded-lg transition-all bg-green-600 hover:bg-green-700 text-white"
-          >
-            日結
-          </button>
-          <div className={`text-sm ${
-            salesMode === 'live' ? 'text-white' : 'text-black dark:text-gray-300'
+      <div className="h-screen bg-slate-900 flex flex-col overflow-hidden">
+        {/* Header - 簡化配色 */}
+        <div className={`border-b border-slate-700 px-6 py-3 flex items-center justify-between ${salesMode === 'live'
+          ? 'bg-purple-900'
+          : 'bg-slate-800'
           }`}>
-            {new Date().toLocaleString('zh-TW')}
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-bold text-white">
+              🏪 收銀系統
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowDrafts(!showDrafts)}
+              className="font-medium px-3 py-2 rounded-lg transition-all relative bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm"
+            >
+              暫存
+              {drafts.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {drafts.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setShowTodaySales(!showTodaySales)}
+              className="font-medium px-3 py-2 rounded-lg transition-all bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm"
+            >
+              交易記錄
+            </button>
+            <button
+              onClick={async () => {
+                await fetchClosingStats()
+                setShowClosingModal(true)
+              }}
+              className="font-medium px-3 py-2 rounded-lg transition-all bg-emerald-600 hover:bg-emerald-500 text-white text-sm"
+            >
+              日結
+            </button>
+            <div className="text-sm text-slate-400 ml-2">
+              {new Date().toLocaleString('zh-TW')}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left - Product Grid */}
-        <div className="w-[500px] flex flex-col bg-white dark:bg-gray-800 p-4 overflow-hidden border-r-2 border-gray-300 dark:border-gray-700">
-          {/* Mode Toggle */}
-          <div className="mb-3 flex gap-2">
-            <button
-              onClick={() => setInventoryMode('products')}
-              className={`flex-1 py-2 px-4 rounded-lg font-bold border-2 transition-all ${
-                inventoryMode === 'products'
-                  ? 'bg-blue-700 border-blue-800 text-white shadow-md'
-                  : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
-              }`}
-            >
-              商品庫
-            </button>
-            <button
-              onClick={() => setInventoryMode('ichiban')}
-              className={`flex-1 py-2 px-4 rounded-lg font-bold border-2 transition-all ${
-                inventoryMode === 'ichiban'
-                  ? 'bg-teal-700 border-teal-800 text-white shadow-md'
-                  : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
-              }`}
-            >
-              一番賞庫
-            </button>
-          </div>
+        <div className="flex-1 flex overflow-hidden">
+          {/* Left - 商品區 (等分) */}
+          <div className="flex-1 flex flex-col bg-slate-800 p-3 overflow-hidden border-r border-slate-700">
+            {/* Mode Toggle */}
+            <div className="mb-3 flex gap-2">
+              <button
+                onClick={() => setInventoryMode('products')}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${inventoryMode === 'products'
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  }`}
+              >
+                商品庫
+              </button>
+              <button
+                onClick={() => setInventoryMode('ichiban')}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${inventoryMode === 'ichiban'
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  }`}
+              >
+                一番賞
+              </button>
+            </div>
 
-          {inventoryMode === 'products' && (
-            <>
-              <div className="mb-2 space-y-1">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setSearchQuery(value)
+            {inventoryMode === 'products' && (
+              <>
+                <div className="mb-3">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setSearchQuery(value)
 
-                    // 清除上次的定时器
-                    if (scanTimeoutRef.current) {
-                      clearTimeout(scanTimeoutRef.current)
-                    }
-
-                    // 设置新的定时器，扫描枪通常在100ms内完成输入
-                    scanTimeoutRef.current = setTimeout(() => {
-                      if (value.trim()) {
-                        // 查找匹配的商品（精确匹配条码）
-                        const matchedProduct = products.find(
-                          p => p.barcode && p.barcode.toLowerCase() === value.toLowerCase()
-                        )
-
-                        if (matchedProduct) {
-                          // 自动添加到购物车
-                          addToCart(matchedProduct, 1)
-                          // 清空搜索框
-                          setSearchQuery('')
-                        }
+                      if (scanTimeoutRef.current) {
+                        clearTimeout(scanTimeoutRef.current)
                       }
-                    }, 100)
-                  }}
-                  placeholder="掃描條碼或搜尋商品"
-                  className="w-full border-2 border-gray-400 dark:border-gray-600 rounded px-3 py-2 text-sm text-black dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-black dark:focus:border-blue-500 focus:outline-none"
-                />
-                <div className="text-xs text-gray-600 dark:text-gray-400 px-1">
-                  💡 左鍵加入購物車 · 右鍵固定常用商品
-                </div>
-              </div>
 
-              <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <div className="grid grid-cols-3 gap-2">
-                  {filteredProducts.map((product) => {
-                    const isPinned = pinnedProductIds.has(product.id)
-                    return (
-                      <button
-                        key={product.id}
-                        onClick={() => addToCart(product, 1)}
-                        onContextMenu={(e) => {
-                          e.preventDefault()
-                          togglePinProduct(product.id)
-                        }}
-                        className={`rounded p-3 shadow hover:shadow-md transition-all active:scale-95 flex flex-col items-center justify-center min-h-[100px] border relative ${
-                          isPinned
-                            ? 'bg-yellow-600 hover:bg-yellow-700 border-yellow-800'
-                            : 'bg-blue-700 hover:bg-blue-800 border-blue-800'
-                        } text-white`}
-                        title={isPinned ? '右鍵取消固定' : '右鍵固定到最上面'}
-                      >
-                        {isPinned && (
-                          <div className="absolute top-1 right-1 text-yellow-200">
-                            📌
+                      scanTimeoutRef.current = setTimeout(() => {
+                        if (value.trim()) {
+                          const matchedProduct = products.find(
+                            p => p.barcode && p.barcode.toLowerCase() === value.toLowerCase()
+                          )
+
+                          if (matchedProduct) {
+                            addToCart(matchedProduct, 1)
+                            setSearchQuery('')
+                          }
+                        }
+                      }, 100)
+                    }}
+                    placeholder="🔍 掃描或搜尋商品..."
+                    className="w-full rounded-lg px-3 py-2.5 text-sm text-white bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:outline-none placeholder-slate-400"
+                  />
+                </div>
+
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                  <div className="grid grid-cols-3 gap-2">
+                    {filteredProducts.map((product) => {
+                      const isPinned = pinnedProductIds.has(product.id)
+                      const isLowStock = product.stock <= 3 && product.stock > 0
+                      // 只有當不允許負庫存時，庫存 0 才禁止銷售
+                      const isOutOfStock = !product.allow_negative && product.stock <= 0
+                      return (
+                        <button
+                          key={product.id}
+                          onContextMenu={(e) => {
+                            e.preventDefault()
+                            togglePinProduct(product.id)
+                          }}
+                          className={`rounded-lg p-2.5 transition-all active:scale-95 flex flex-col min-h-[90px] relative ${isOutOfStock
+                            ? 'bg-slate-800 opacity-40 cursor-not-allowed'
+                            : 'bg-slate-700 hover:bg-slate-600 cursor-pointer'
+                            }`}
+                          title={isOutOfStock ? '庫存不足' : isPinned ? '右鍵取消固定' : '右鍵固定到最上面'}
+                          disabled={isOutOfStock}
+                          onClick={(e) => {
+                            if (isOutOfStock) {
+                              e.preventDefault()
+                              return
+                            }
+                            addToCart(product, 1)
+                          }}
+                        >
+                          {/* 標籤區 */}
+                          <div className="absolute top-1.5 right-1.5 flex gap-1">
+                            {isPinned && <span className="text-xs">⭐</span>}
+                            {isLowStock && <span className="text-[10px] bg-amber-500 text-white px-1 rounded">低庫存</span>}
                           </div>
-                        )}
-                        <div className="text-sm font-bold text-center mb-1 line-clamp-2">{product.name}</div>
-                        <div className="text-lg font-bold">{formatCurrency(product.price)}</div>
-                        <div className="text-xs mt-1">庫存: {product.stock}</div>
-                      </button>
-                    )
-                  })}
+                          {/* 商品名 */}
+                          <div className="text-xs text-slate-300 line-clamp-2 mb-auto pr-6">{product.name}</div>
+                          {/* 價格 - 最大 */}
+                          <div className="text-lg font-bold text-white mt-1">{formatCurrency(product.price)}</div>
+                          {/* 庫存 - 小字 */}
+                          <div className="text-[10px] text-slate-400">庫存 {product.stock}</div>
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
 
-          {inventoryMode === 'ichiban' && (
-            <>
-              <div className="mb-3">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setSearchQuery(value)
-                    
-                    // 清除上次的定时器
-                    if (scanTimeoutRef.current) {
-                      clearTimeout(scanTimeoutRef.current)
-                    }
-                    
-                    // 设置新的定时器，扫描枪通常在100ms内完成输入
-                    scanTimeoutRef.current = setTimeout(() => {
-                      if (value.trim()) {
-                        // 查找匹配的一番赏（精确匹配条码）
-                        const matchedKuji = ichibanKujis.find(
-                          kuji => kuji.barcode && kuji.barcode.toLowerCase() === value.toLowerCase()
-                        )
-                        
-                        if (matchedKuji) {
-                          // 自动展开对应的一番赏
-                          setExpandedKujiId(matchedKuji.id)
-                          // 清空搜索框
-                          setSearchQuery('')
-                        }
+            {inventoryMode === 'ichiban' && (
+              <>
+                <div className="mb-3">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setSearchQuery(value)
+
+                      // 清除上次的定时器
+                      if (scanTimeoutRef.current) {
+                        clearTimeout(scanTimeoutRef.current)
                       }
-                    }, 100)
-                  }}
-                  placeholder="掃描條碼或搜尋一番賞"
-                  className="w-full border-2 border-gray-400 dark:border-gray-600 rounded px-3 py-2 text-sm text-black dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-teal-500 dark:focus:border-teal-400 focus:outline-none"
-                />
-              </div>
 
-              <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <div className="grid grid-cols-3 gap-2">
-                  {!expandedKujiId ? (
-                    // 顯示一番賞系列
-                    <>
-                      {ichibanKujis
-                        .filter((kuji) => {
+                      // 设置新的定时器，扫描枪通常在100ms内完成输入
+                      scanTimeoutRef.current = setTimeout(() => {
+                        if (value.trim()) {
+                          // 查找匹配的一番赏（精确匹配条码）
+                          const matchedKuji = ichibanKujis.find(
+                            kuji => kuji.barcode && kuji.barcode.toLowerCase() === value.toLowerCase()
+                          )
+
+                          if (matchedKuji) {
+                            // 自动展开对应的一番赏
+                            setExpandedKujiId(matchedKuji.id)
+                            // 清空搜索框
+                            setSearchQuery('')
+                          }
+                        }
+                      }, 100)
+                    }}
+                    placeholder="掃描條碼或搜尋一番賞"
+                    className="w-full border-2 border-gray-400 dark:border-gray-600 rounded px-3 py-2 text-sm text-black dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-teal-500 dark:focus:border-teal-400 focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                  <div className="grid grid-cols-3 gap-2">
+                    {!expandedKujiId ? (
+                      // 顯示一番賞系列
+                      <>
+                        {ichibanKujis
+                          .filter((kuji) => {
+                            const searchLower = searchQuery.toLowerCase()
+                            return kuji.name.toLowerCase().includes(searchLower) ||
+                              (kuji.barcode && kuji.barcode.toLowerCase().includes(searchLower))
+                          })
+                          .map((kuji) => {
+                            const totalRemaining = (kuji.ichiban_kuji_prizes || []).reduce(
+                              (sum: number, prize: any) => sum + prize.remaining,
+                              0
+                            )
+                            const prizeCount = (kuji.ichiban_kuji_prizes || []).length
+
+                            return (
+                              <button
+                                key={kuji.id}
+                                onClick={() => setExpandedKujiId(kuji.id)}
+                                className="rounded p-4 shadow hover:shadow-md transition-all active:scale-95 flex flex-col items-center justify-center min-h-[120px] border-2 bg-teal-200 hover:bg-teal-300 border-teal-400 dark:bg-teal-900 dark:hover:bg-teal-800 dark:border-teal-700"
+                              >
+                                <div className="text-lg font-bold mb-2 text-center text-teal-950 dark:text-teal-100">
+                                  {kuji.name}
+                                </div>
+                                <div className="text-sm text-teal-800 dark:text-teal-300 mb-1">
+                                  賞品數: {prizeCount}
+                                </div>
+                                <div className="text-sm text-teal-800 dark:text-teal-300">
+                                  剩餘總數: {totalRemaining}
+                                </div>
+                              </button>
+                            )
+                          })}
+                        {ichibanKujis.filter((kuji) => {
                           const searchLower = searchQuery.toLowerCase()
                           return kuji.name.toLowerCase().includes(searchLower) ||
-                                 (kuji.barcode && kuji.barcode.toLowerCase().includes(searchLower))
-                        })
-                        .map((kuji) => {
-                          const totalRemaining = (kuji.ichiban_kuji_prizes || []).reduce(
-                            (sum: number, prize: any) => sum + prize.remaining,
-                            0
-                          )
-                          const prizeCount = (kuji.ichiban_kuji_prizes || []).length
+                            (kuji.barcode && kuji.barcode.toLowerCase().includes(searchLower))
+                        }).length === 0 && (
+                            <div className="col-span-3 text-center text-gray-500 dark:text-gray-400 py-10">
+                              <div className="text-4xl mb-2">🎁</div>
+                              <div>{searchQuery ? '找不到相關的一番賞' : '目前沒有一番賞'}</div>
+                            </div>
+                          )}
+                      </>
+                    ) : (
+                      // 顯示選中系列的賞品
+                      <>
+                        {(() => {
+                          const selectedKuji = ichibanKujis.find(k => k.id === expandedKujiId)
+                          if (!selectedKuji) return null
 
                           return (
-                            <button
-                              key={kuji.id}
-                              onClick={() => setExpandedKujiId(kuji.id)}
-                              className="rounded p-4 shadow hover:shadow-md transition-all active:scale-95 flex flex-col items-center justify-center min-h-[120px] border-2 bg-teal-200 hover:bg-teal-300 border-teal-400 dark:bg-teal-900 dark:hover:bg-teal-800 dark:border-teal-700"
-                            >
-                              <div className="text-lg font-bold mb-2 text-center text-teal-950 dark:text-teal-100">
-                                {kuji.name}
+                            <>
+                              {/* 返回按鈕 */}
+                              <div className="col-span-3">
+                                <button
+                                  onClick={() => setExpandedKujiId(null)}
+                                  className="flex items-center gap-2 px-4 py-2 bg-teal-200 hover:bg-teal-300 dark:bg-teal-900 dark:hover:bg-teal-800 rounded text-teal-950 dark:text-teal-100 font-medium transition-colors"
+                                >
+                                  <span>←</span>
+                                  <span>{selectedKuji.name}</span>
+                                </button>
                               </div>
-                              <div className="text-sm text-teal-800 dark:text-teal-300 mb-1">
-                                賞品數: {prizeCount}
-                              </div>
-                              <div className="text-sm text-teal-800 dark:text-teal-300">
-                                剩餘總數: {totalRemaining}
-                              </div>
-                            </button>
-                          )
-                        })}
-                      {ichibanKujis.filter((kuji) => {
-                        const searchLower = searchQuery.toLowerCase()
-                        return kuji.name.toLowerCase().includes(searchLower) ||
-                               (kuji.barcode && kuji.barcode.toLowerCase().includes(searchLower))
-                      }).length === 0 && (
-                        <div className="col-span-3 text-center text-gray-500 dark:text-gray-400 py-10">
-                          <div className="text-4xl mb-2">🎁</div>
-                          <div>{searchQuery ? '找不到相關的一番賞' : '目前沒有一番賞'}</div>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    // 顯示選中系列的賞品
-                    <>
-                      {(() => {
-                        const selectedKuji = ichibanKujis.find(k => k.id === expandedKujiId)
-                        if (!selectedKuji) return null
 
-                        return (
-                          <>
-                            {/* 返回按鈕 */}
-                            <div className="col-span-3">
-                              <button
-                                onClick={() => setExpandedKujiId(null)}
-                                className="flex items-center gap-2 px-4 py-2 bg-teal-200 hover:bg-teal-300 dark:bg-teal-900 dark:hover:bg-teal-800 rounded text-teal-950 dark:text-teal-100 font-medium transition-colors"
-                              >
-                                <span>←</span>
-                                <span>{selectedKuji.name}</span>
-                              </button>
-                            </div>
-
-                            {/* 賞品列表 */}
-                            {(selectedKuji.ichiban_kuji_prizes || []).map((prize: any) => (
-                              <button
-                                key={prize.id}
-                                onClick={() => addIchibanPrize(selectedKuji, prize)}
-                                disabled={prize.remaining <= 0}
-                                className={`rounded p-3 shadow hover:shadow-md transition-all active:scale-95 flex flex-col items-center justify-center min-h-[100px] border-2 ${
-                                  prize.remaining <= 0
+                              {/* 賞品列表 */}
+                              {(selectedKuji.ichiban_kuji_prizes || []).map((prize: any) => (
+                                <button
+                                  key={prize.id}
+                                  onClick={() => addIchibanPrize(selectedKuji, prize)}
+                                  disabled={prize.remaining <= 0}
+                                  className={`rounded p-3 shadow hover:shadow-md transition-all active:scale-95 flex flex-col items-center justify-center min-h-[100px] border-2 ${prize.remaining <= 0
                                     ? 'bg-gray-300 dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-500 cursor-not-allowed opacity-50'
                                     : 'bg-teal-700 hover:bg-teal-800 text-white border-teal-800'
-                                }`}
-                              >
-                                <div className="text-xs font-bold mb-1 text-center px-2 py-0.5 bg-white/20 rounded">
-                                  {prize.prize_tier}
-                                </div>
-                                <div className="text-sm font-bold text-center mb-1 line-clamp-2">
-                                  {prize.products.name}
-                                </div>
-                                <div className="text-lg font-bold">{formatCurrency(selectedKuji.price || 0)}</div>
-                                <div className="text-xs mt-1">剩餘: {prize.remaining}</div>
-                              </button>
-                            ))}
-                          </>
-                        )
-                      })()}
-                    </>
-                  )}
+                                    }`}
+                                >
+                                  <div className="text-xs font-bold mb-1 text-center px-2 py-0.5 bg-white/20 rounded">
+                                    {prize.prize_tier}
+                                  </div>
+                                  <div className="text-sm font-bold text-center mb-1 line-clamp-2">
+                                    {prize.products.name}
+                                  </div>
+                                  <div className="text-lg font-bold">{formatCurrency(selectedKuji.price || 0)}</div>
+                                  <div className="text-xs mt-1">剩餘: {prize.remaining}</div>
+                                </button>
+                              ))}
+                            </>
+                          )
+                        })()}
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Middle - Cart */}
-        <div className="flex-1 bg-gray-100 dark:bg-gray-900 flex flex-col border-r-2 border-gray-300 dark:border-gray-700">
-          <div className="bg-white dark:bg-gray-800 px-4 py-3 border-b-2 border-gray-300 dark:border-gray-700 flex items-center justify-between">
-            <h2 className="font-bold text-lg text-black dark:text-gray-100">購物清單</h2>
-            {cart.length > 0 && (
-              <div className="flex gap-2">
-                <button
-                  onClick={toggleAllFreeGift}
-                  className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-3 py-1 rounded text-sm transition-all"
-                  title={cart.every(item => item.isFreeGift || item.ichiban_kuji_prize_id) ? "取消全選贈品" : "全選贈品"}
-                >
-                  {cart.every(item => item.isFreeGift || item.ichiban_kuji_prize_id) ? "取消贈品" : "全選贈品"}
-                </button>
-                <button
-                  onClick={() => setCart([])}
-                  className="bg-red-500 hover:bg-red-600 text-white font-bold px-3 py-1 rounded text-sm transition-all"
-                >
-                  清空
-                </button>
-              </div>
+              </>
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
-            {cart.length === 0 ? (
-              <div className="text-center text-gray-500 dark:text-gray-400 mt-20">
-                <div className="text-4xl mb-2">🛒</div>
-                <div className="text-black dark:text-gray-300">請點選商品</div>
-              </div>
-            ) : (
-              displayCart.map((item, displayIndex) => {
-                const isGrouped = !!item.groupedCount && item.groupedCount > 1
-                const hasComboDiscount = item.ichiban_kuji_id && isGrouped
-                
-                // Calculate average price for grouped items
-                const avgOriginalPrice = isGrouped 
-                  ? item.indices!.reduce((sum, idx) => sum + cart[idx].price, 0) / item.indices!.length
-                  : (cart[item.indices![0]]?.price || item.price)
-
-                return (
-                  <div
-                    key={`display-${displayIndex}`}
-                    className="bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-700 rounded-lg p-3"
+          {/* Middle - 購物車 (等分) */}
+          <div className="flex-1 bg-slate-900 flex flex-col border-r border-slate-700">
+            <div className="bg-slate-800 px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+              <h2 className="font-bold text-lg text-white">購物清單</h2>
+              {cart.length > 0 && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={toggleAllFreeGift}
+                    className="bg-slate-600 hover:bg-slate-500 text-white px-3 py-1 rounded-lg text-sm transition-all"
+                    title={cart.every(item => item.isFreeGift || item.ichiban_kuji_prize_id) ? "取消全選贈品" : "全選贈品"}
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex-1">
-                        <div className="font-bold text-sm text-black dark:text-gray-100">
-                          {item.product.name}
-                          {item.ichiban_kuji_id && (
-                            <span className="ml-2 text-xs bg-purple-500 text-white px-2 py-0.5 rounded">一番賞</span>
-                          )}
-                          {hasComboDiscount && (
-                            <span className="ml-2 text-xs bg-green-500 text-white px-2 py-0.5 rounded">組合優惠</span>
-                          )}
-                          {cart[item.indices![0]]?.isFreeGift && (
-                            <span className="ml-2 text-xs bg-red-500 text-white px-2 py-0.5 rounded">贈品</span>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                          {hasComboDiscount && (
-                            <span className="line-through mr-2">{formatCurrency(avgOriginalPrice)}</span>
-                          )}
-                          {formatCurrency(item.price)}
-                          {isGrouped && <span className="ml-2">× {item.quantity} 抽</span>}
-                        </div>
-                        {!item.ichiban_kuji_id && (
-                          <label className="flex items-center gap-1 mt-1 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={cart[item.indices![0]]?.isFreeGift || false}
-                              onChange={() => toggleFreeGift(item.indices![0])}
-                              className="w-3 h-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <span className="text-xs text-gray-600 dark:text-gray-400">贈品</span>
-                          </label>
-                        )}
-                      </div>
-                    <button
-                      onClick={() => {
-                        // Remove all items in this group
-                        if (item.indices && item.indices.length > 0) {
-                          // Remove in reverse order to maintain correct indices
-                          const sortedIndices = [...item.indices].sort((a, b) => b - a)
-                          sortedIndices.forEach(idx => {
-                            removeFromCart(cart[idx].product_id, idx)
-                          })
-                        }
-                      }}
-                      className="text-red-600 hover:text-red-800 font-bold text-lg ml-2"
-                    >
-                      ×
-                    </button>
-                  </div>
-                  
-                  {/* Show details for grouped items */}
-                  {isGrouped && item.indices && (
-                    <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 space-y-1">
-                      {item.indices.map((idx) => {
-                        const cartItem = cart[idx]
-                        const priceItem = cartWithComboPrice[idx]
-                        return (
-                          <div key={idx} className="flex items-center justify-between text-xs">
-                            <div className="flex-1 flex items-center gap-2">
-                              <span className="text-purple-600 dark:text-purple-400 font-bold">
-                                {cartItem.product.name.match(/】(.+?) -/)?.[1] || '賞'}
-                              </span>
-                              <span className="text-gray-600 dark:text-gray-400">
-                                {cartItem.product.name.split(' - ')[1] || cartItem.product.name}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-gray-500 dark:text-gray-500">
-                                {formatCurrency(priceItem.price)}
-                              </span>
-                              <button
-                                onClick={() => removeFromCart(cartItem.product_id, idx)}
-                                className="text-red-500 hover:text-red-700 font-bold"
-                              >
-                                ×
-                              </button>
-                            </div>
+                    {cart.every(item => item.isFreeGift || item.ichiban_kuji_prize_id) ? "取消贈品" : "全選贈品"}
+                  </button>
+                  <button
+                    onClick={() => setCart([])}
+                    className="bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded-lg text-sm transition-all"
+                  >
+                    清空
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2">
+              {cart.length === 0 ? (
+                <div className="text-center text-slate-500 mt-20">
+                  <div className="text-4xl mb-2">🛒</div>
+                  <div className="text-slate-400">請點選商品</div>
+                </div>
+              ) : (
+                displayCart.map((item, displayIndex) => {
+                  const isGrouped = !!item.groupedCount && item.groupedCount > 1
+                  const hasComboDiscount = item.ichiban_kuji_id && isGrouped
+
+                  // Calculate average price for grouped items
+                  const avgOriginalPrice = isGrouped
+                    ? item.indices!.reduce((sum, idx) => sum + cart[idx].price, 0) / item.indices!.length
+                    : (cart[item.indices![0]]?.price || item.price)
+
+                  return (
+                    <div
+                      key={`display-${displayIndex}`}
+                      className="bg-slate-800 border border-slate-700 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex-1">
+                          <div className="font-medium text-sm text-white">
+                            {item.product.name}
+                            {item.ichiban_kuji_id && (
+                              <span className="ml-2 text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded">一番賞</span>
+                            )}
+                            {hasComboDiscount && (
+                              <span className="ml-2 text-xs bg-emerald-600 text-white px-1.5 py-0.5 rounded">組合</span>
+                            )}
+                            {cart[item.indices![0]]?.isFreeGift && (
+                              <span className="ml-2 text-xs bg-red-500 text-white px-2 py-0.5 rounded">贈品</span>
+                            )}
                           </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center justify-between mt-2">
-                    {!item.ichiban_kuji_id ? (
-                      <div className="flex items-center gap-1">
+                          <div className="text-xs text-gray-600 dark:text-gray-400">
+                            {hasComboDiscount && (
+                              <span className="line-through mr-2">{formatCurrency(avgOriginalPrice)}</span>
+                            )}
+                            {formatCurrency(item.price)}
+                            {isGrouped && <span className="ml-2">× {item.quantity} 抽</span>}
+                          </div>
+                          {!item.ichiban_kuji_id && (
+                            <label className="flex items-center gap-1 mt-1 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={cart[item.indices![0]]?.isFreeGift || false}
+                                onChange={() => toggleFreeGift(item.indices![0])}
+                                className="w-3 h-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              />
+                              <span className="text-xs text-gray-600 dark:text-gray-400">贈品</span>
+                            </label>
+                          )}
+                        </div>
                         <button
-                          onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
-                          className="w-7 h-7 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded font-bold text-sm text-black dark:text-gray-100"
-                        >
-                          −
-                        </button>
-                        <input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => {
-                            const newQty = parseInt(e.target.value) || 1
-                            if (newQty > 0) {
-                              updateQuantity(item.product_id, newQty)
+                          onClick={() => {
+                            // Remove all items in this group
+                            if (item.indices && item.indices.length > 0) {
+                              // Remove in reverse order to maintain correct indices
+                              const sortedIndices = [...item.indices].sort((a, b) => b - a)
+                              sortedIndices.forEach(idx => {
+                                removeFromCart(cart[idx].product_id, idx)
+                              })
                             }
                           }}
-                          className="w-14 h-7 text-center font-bold text-sm text-black dark:text-gray-100 bg-gray-100 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
-                        <button
-                          onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
-                          className="w-7 h-7 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded font-bold text-sm text-black dark:text-gray-100"
+                          className="text-red-600 hover:text-red-800 font-bold text-lg ml-2"
                         >
-                          +
+                          ×
                         </button>
                       </div>
-                    ) : (
-                      <div className="text-xs text-purple-600 dark:text-purple-400 font-bold">
-                        {item.groupedCount} 個賞項
-                      </div>
-                    )}
-                    <div className="text-base font-bold text-black dark:text-gray-100">
-                      {formatCurrency(item.price * item.quantity)}
-                    </div>
-                  </div>
-                </div>
-                )
-              })
-            )}
-          </div>
 
-          {/* Total Display */}
-          <div className="bg-white dark:bg-gray-800 border-t-2 border-gray-300 dark:border-gray-700 p-6">
-            {/* Show combo price info */}
-            {cart.some(item => item.ichiban_kuji_id) && (() => {
-              const uniqueKujiIds = [...new Set(cart.filter(item => item.ichiban_kuji_id).map(item => item.ichiban_kuji_id!))]
-              return uniqueKujiIds.map(kuji_id => {
-                const info = getIchibanComboInfo(kuji_id)
-                if (info.applicableCombo) {
-                  return (
-                    <div key={kuji_id} className="mb-3 p-2 bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-600 rounded-lg">
-                      <div className="text-sm font-bold text-green-700 dark:text-green-400">
-                        🎉 {info.kuji?.name} 組合優惠
-                      </div>
-                      <div className="text-xs text-green-600 dark:text-green-500">
-                        {info.applicableCombo.draws} 抽 {formatCurrency(info.applicableCombo.price)} (已購 {info.totalCount} 抽)
+                      {/* Show details for grouped items */}
+                      {isGrouped && item.indices && (
+                        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 space-y-1">
+                          {item.indices.map((idx) => {
+                            const cartItem = cart[idx]
+                            const priceItem = cartWithComboPrice[idx]
+                            return (
+                              <div key={idx} className="flex items-center justify-between text-xs">
+                                <div className="flex-1 flex items-center gap-2">
+                                  <span className="text-purple-600 dark:text-purple-400 font-bold">
+                                    {cartItem.product.name.match(/】(.+?) -/)?.[1] || '賞'}
+                                  </span>
+                                  <span className="text-gray-600 dark:text-gray-400">
+                                    {cartItem.product.name.split(' - ')[1] || cartItem.product.name}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-500 dark:text-gray-500">
+                                    {formatCurrency(priceItem.price)}
+                                  </span>
+                                  <button
+                                    onClick={() => removeFromCart(cartItem.product_id, idx)}
+                                    className="text-red-500 hover:text-red-700 font-bold"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between mt-2">
+                        {!item.ichiban_kuji_id ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
+                              className="w-7 h-7 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded font-bold text-sm text-black dark:text-gray-100"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const newQty = parseInt(e.target.value) || 1
+                                if (newQty > 0) {
+                                  updateQuantity(item.product_id, newQty)
+                                }
+                              }}
+                              className="w-14 h-7 text-center font-bold text-sm text-black dark:text-gray-100 bg-gray-100 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <button
+                              onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
+                              className="w-7 h-7 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 rounded font-bold text-sm text-black dark:text-gray-100"
+                            >
+                              +
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-purple-600 dark:text-purple-400 font-bold">
+                            {item.groupedCount} 個賞項
+                          </div>
+                        )}
+                        <div className="text-base font-bold text-black dark:text-gray-100">
+                          {formatCurrency(item.price * item.quantity)}
+                        </div>
                       </div>
                     </div>
                   )
-                }
-                return null
-              })
-            })()}
+                })
+              )}
+            </div>
 
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-lg text-black dark:text-gray-300">小計</span>
-              <span className="text-2xl font-bold text-black dark:text-gray-100">{formatCurrency(subtotal)}</span>
+            {/* Total Display - 金額區域 */}
+            <div className="bg-slate-800 border-t border-slate-700 p-4">
+              {/* Show combo price info */}
+              {cart.some(item => item.ichiban_kuji_id) && (() => {
+                const uniqueKujiIds = [...new Set(cart.filter(item => item.ichiban_kuji_id).map(item => item.ichiban_kuji_id!))]
+                return uniqueKujiIds.map(kuji_id => {
+                  const info = getIchibanComboInfo(kuji_id)
+                  if (info.applicableCombo) {
+                    return (
+                      <div key={kuji_id} className="mb-3 p-2 bg-emerald-900/30 border border-emerald-600 rounded-lg">
+                        <div className="text-sm font-medium text-emerald-400">
+                          🎉 {info.kuji?.name} 組合優惠
+                        </div>
+                        <div className="text-xs text-emerald-500">
+                          {info.applicableCombo.draws} 抽 {formatCurrency(info.applicableCombo.price)} (已購 {info.totalCount} 抽)
+                        </div>
+                      </div>
+                    )
+                  }
+                  return null
+                })
+              })()}
+
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-slate-400">小計</span>
+                <span className="text-xl font-bold text-white">{formatCurrency(subtotal)}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between items-center mb-2 text-red-400">
+                  <span>折扣</span>
+                  <span className="text-xl font-bold">-{formatCurrency(discountAmount)}</span>
+                </div>
+              )}
+              {storeCreditUsed > 0 && (
+                <div className="flex justify-between items-center mb-2 text-emerald-400">
+                  <span>購物金</span>
+                  <span className="text-xl font-bold">-{formatCurrency(storeCreditUsed)}</span>
+                </div>
+              )}
+              <div className="border-t border-slate-600 pt-3 flex justify-between items-center">
+                <span className="text-lg text-slate-300">
+                  {storeCreditUsed > 0 ? '實付金額' : '總計'}
+                </span>
+                <span className="text-4xl font-bold text-white">
+                  {formatCurrency(finalTotal)}
+                </span>
+              </div>
+              {storeCreditUsed > 0 && (
+                <div className="mt-2 text-sm text-slate-400">
+                  已使用購物金 {formatCurrency(storeCreditUsed)}，餘額將變為 {formatCurrency(selectedCustomer!.store_credit - storeCreditUsed)}
+                </div>
+              )}
             </div>
-            {discountAmount > 0 && (
-              <div className="flex justify-between items-center mb-2 text-red-600 dark:text-red-400">
-                <span className="text-lg">折扣</span>
-                <span className="text-2xl font-bold">-{formatCurrency(discountAmount)}</span>
-              </div>
-            )}
-            {storeCreditUsed > 0 && (
-              <div className="flex justify-between items-center mb-2 text-green-600 dark:text-green-400">
-                <span className="text-lg">購物金</span>
-                <span className="text-2xl font-bold">-{formatCurrency(storeCreditUsed)}</span>
-              </div>
-            )}
-            <div className="border-t-2 border-gray-300 dark:border-gray-700 pt-2 flex justify-between items-center">
-              <span className="text-xl text-black dark:text-gray-300">
-                {storeCreditUsed > 0 ? '實付金額' : '總計'}
-              </span>
-              <span className="text-4xl font-bold text-black dark:text-gray-100">
-                {formatCurrency(finalTotal)}
-              </span>
-            </div>
-            {storeCreditUsed > 0 && (
-              <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                已使用購物金 {formatCurrency(storeCreditUsed)}，餘額將變為 {formatCurrency(selectedCustomer!.store_credit - storeCreditUsed)}
-              </div>
-            )}
           </div>
-        </div>
 
-        {/* Right - Payment Panel */}
-        <div className="w-[450px] bg-white dark:bg-gray-800 flex flex-col">
-          {error && (
-            <div className="bg-red-100 dark:bg-red-900 border-2 border-red-500 dark:border-red-600 text-red-700 dark:text-red-200 rounded-lg px-4 py-3 m-4 mb-0">
-              {error}
-            </div>
-          )}
-
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2.5">
-            {/* Customer */}
-            <div className="relative">
-              <label className="block font-bold mb-1.5 text-sm text-black dark:text-gray-100">客戶</label>
-              <div className="relative">
-                <input
-                  ref={customerInputRef}
-                  type="text"
-                  value={customerSearchQuery}
-                  onChange={(e) => {
-                    setCustomerSearchQuery(e.target.value)
-                    setShowCustomerDropdown(true)
-                  }}
-                  onFocus={() => setShowCustomerDropdown(true)}
-                  placeholder={selectedCustomer ? selectedCustomer.customer_name : '散客 (點擊搜尋)'}
-                  className="w-full border-2 border-gray-400 dark:border-gray-600 rounded-lg px-3 py-2 text-base text-black dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-black dark:focus:border-blue-500 focus:outline-none"
-                />
-                {selectedCustomer && (
-                  <button
-                    onClick={() => {
-                      setSelectedCustomer(null)
-                      setCustomerSearchQuery('')
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-red-600 font-bold"
-                  >
-                    ×
-                  </button>
-                )}
+          {/* Right - 結帳區 (等分) */}
+          <div className="flex-1 bg-slate-800 flex flex-col">
+            {error && (
+              <div className="bg-red-100 dark:bg-red-900 border-2 border-red-500 dark:border-red-600 text-red-700 dark:text-red-200 rounded-lg px-4 py-3 m-4 mb-0">
+                {error}
               </div>
+            )}
 
-              {/* Dropdown */}
-              {showCustomerDropdown && (
-                <div className="customer-dropdown absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border-2 border-gray-400 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto custom-scrollbar">
-                  {/* 散客選項 */}
-                  <button
-                    onClick={() => {
-                      setSelectedCustomer(null)
-                      setCustomerSearchQuery('')
-                      setShowCustomerDropdown(false)
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-3">
+              {/* Customer */}
+              <div className="relative">
+                <label className="block font-medium mb-1.5 text-sm text-slate-300">客戶</label>
+                <div className="relative">
+                  <input
+                    ref={customerInputRef}
+                    type="text"
+                    value={customerSearchQuery}
+                    onChange={(e) => {
+                      setCustomerSearchQuery(e.target.value)
+                      setShowCustomerDropdown(true)
                     }}
-                    className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-black dark:text-gray-100 border-b border-gray-200 dark:border-gray-600"
-                  >
-                    <div className="font-bold">散客</div>
-                    <div className="text-xs text-gray-500">不選擇客戶</div>
-                  </button>
-
-                  {/* 過濾後的客戶列表 */}
-                  {filteredCustomers.map((customer) => (
+                    onFocus={() => setShowCustomerDropdown(true)}
+                    placeholder={selectedCustomer ? selectedCustomer.customer_name : '散客 (點擊搜尋)'}
+                    className="w-full rounded-lg px-3 py-2 text-sm text-white bg-slate-700 border border-slate-600 focus:border-indigo-500 focus:outline-none"
+                  />
+                  {selectedCustomer && (
                     <button
-                      key={customer.id}
                       onClick={() => {
-                        setSelectedCustomer(customer)
+                        setSelectedCustomer(null)
+                        setCustomerSearchQuery('')
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-red-600 font-bold"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
+                {/* Dropdown */}
+                {showCustomerDropdown && (
+                  <div className="customer-dropdown absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border-2 border-gray-400 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto custom-scrollbar">
+                    {/* 散客選項 */}
+                    <button
+                      onClick={() => {
+                        setSelectedCustomer(null)
                         setCustomerSearchQuery('')
                         setShowCustomerDropdown(false)
                       }}
-                      className="w-full text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-black dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                      className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-black dark:text-gray-100 border-b border-gray-200 dark:border-gray-600"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="font-bold">{customer.customer_name}</div>
-                        <div className={`text-sm font-semibold ${
-                          customer.store_credit >= 0
+                      <div className="font-bold">散客</div>
+                      <div className="text-xs text-gray-500">不選擇客戶</div>
+                    </button>
+
+                    {/* 過濾後的客戶列表 */}
+                    {filteredCustomers.map((customer) => (
+                      <button
+                        key={customer.id}
+                        onClick={() => {
+                          setSelectedCustomer(customer)
+                          setCustomerSearchQuery('')
+                          setShowCustomerDropdown(false)
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-black dark:text-gray-100 border-b border-gray-200 dark:border-gray-600 last:border-b-0"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="font-bold">{customer.customer_name}</div>
+                          <div className={`text-sm font-semibold ${customer.store_credit >= 0
                             ? 'text-green-600 dark:text-green-400'
                             : 'text-red-600 dark:text-red-400'
-                        }`}>
-                          ${customer.store_credit?.toFixed(2) || '0.00'}
+                            }`}>
+                            ${customer.store_credit?.toFixed(2) || '0.00'}
+                          </div>
                         </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {customer.customer_code} {customer.phone && `• ${customer.phone}`}
+                        </div>
+                      </button>
+                    ))}
+
+                    {filteredCustomers.length === 0 && customerSearchQuery && (
+                      <div className="px-3 py-4 text-center text-gray-500 dark:text-gray-400">
+                        找不到客戶
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {customer.customer_code} {customer.phone && `• ${customer.phone}`}
-                      </div>
-                    </button>
-                  ))}
+                    )}
+                  </div>
+                )}
 
-                  {filteredCustomers.length === 0 && customerSearchQuery && (
-                    <div className="px-3 py-4 text-center text-gray-500 dark:text-gray-400">
-                      找不到客戶
-                    </div>
-                  )}
-                </div>
-              )}
+                <button
+                  onClick={() => setShowQuickAddCustomer(true)}
+                  className="w-full mt-2 bg-green-500 hover:bg-green-600 text-white font-bold px-3 py-2 rounded-lg text-sm transition-all"
+                >
+                  + 新增客戶
+                </button>
 
-              <button
-                onClick={() => setShowQuickAddCustomer(true)}
-                className="w-full mt-2 bg-green-500 hover:bg-green-600 text-white font-bold px-3 py-2 rounded-lg text-sm transition-all"
-              >
-                + 新增客戶
-              </button>
-
-              {/* 显示选中客户的购物金余额 */}
-              {selectedCustomer && (
-                <div className="mt-2 p-2.5 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">購物金餘額</span>
-                    <span className={`text-lg font-bold ${
-                      selectedCustomer.store_credit >= 0
+                {/* 显示选中客户的购物金余额 */}
+                {selectedCustomer && (
+                  <div className="mt-2 p-2.5 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">購物金餘額</span>
+                      <span className={`text-lg font-bold ${selectedCustomer.store_credit >= 0
                         ? 'text-green-600 dark:text-green-400'
                         : 'text-red-600 dark:text-red-400'
-                    }`}>
-                      ${selectedCustomer.store_credit?.toFixed(2) || '0.00'}
-                    </span>
-                  </div>
-                  {selectedCustomer.credit_limit > 0 && (
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-xs text-gray-600 dark:text-gray-400">信用額度</span>
-                      <span className="text-xs text-gray-600 dark:text-gray-400">
-                        ${selectedCustomer.credit_limit.toFixed(2)}
+                        }`}>
+                        ${selectedCustomer.store_credit?.toFixed(2) || '0.00'}
                       </span>
                     </div>
-                  )}
+                    {selectedCustomer.credit_limit > 0 && (
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-xs text-gray-600 dark:text-gray-400">信用額度</span>
+                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                          ${selectedCustomer.credit_limit.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Payment Method - Button Grid */}
+              <div>
+                <label className="block font-medium mb-1.5 text-sm text-slate-300">付款方式</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      setPaymentMethod('cash')
+                      setIsPaid(true)
+                    }}
+                    className={`py-2.5 px-3 rounded-lg text-sm transition-all ${paymentMethod === 'cash'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      }`}
+                  >
+                    💵 現金
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPaymentMethod('card')
+                      setIsPaid(false)
+                    }}
+                    className={`py-2.5 px-3 rounded-lg text-sm transition-all ${paymentMethod === 'card'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      }`}
+                  >
+                    💳 刷卡
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPaymentMethod('transfer_cathay')
+                      setIsPaid(false)
+                    }}
+                    className={`py-2.5 px-3 rounded-lg text-sm transition-all ${paymentMethod === 'transfer_cathay'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      }`}
+                  >
+                    🏦 國泰
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPaymentMethod('transfer_fubon')
+                      setIsPaid(false)
+                    }}
+                    className={`py-2.5 px-3 rounded-lg text-sm transition-all ${paymentMethod === 'transfer_fubon'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      }`}
+                  >
+                    🏦 富邦
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPaymentMethod('transfer_esun')
+                      setIsPaid(false)
+                    }}
+                    className={`py-2.5 px-3 rounded-lg text-sm transition-all ${paymentMethod === 'transfer_esun'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      }`}
+                  >
+                    🏦 玉山
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPaymentMethod('transfer_union')
+                      setIsPaid(false)
+                    }}
+                    className={`py-2.5 px-3 rounded-lg text-sm transition-all ${paymentMethod === 'transfer_union'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      }`}
+                  >
+                    🏦 聯邦
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPaymentMethod('transfer_linepay')
+                      setIsPaid(false)
+                    }}
+                    className={`py-2.5 px-3 rounded-lg text-sm transition-all ${paymentMethod === 'transfer_linepay'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      }`}
+                  >
+                    💚 LINE
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPaymentMethod('cod')
+                      setIsPaid(false)
+                    }}
+                    className={`py-2.5 px-3 rounded-lg text-sm transition-all ${paymentMethod === 'cod'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      }`}
+                  >
+                    📦 貨到
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPaymentMethod('pending')
+                      setIsPaid(false)
+                    }}
+                    className={`py-2.5 px-3 rounded-lg text-sm transition-all ${paymentMethod === 'pending'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      }`}
+                  >
+                    ❓ 待定
+                  </button>
                 </div>
-              )}
-            </div>
-
-            {/* Payment Method - Button Grid */}
-            <div>
-              <label className="block font-bold mb-1.5 text-sm text-black dark:text-gray-100">付款方式</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => {
-                    setPaymentMethod('cash')
-                    setIsPaid(true)
-                  }}
-                  className={`py-2.5 px-3 rounded-lg font-bold text-sm border-2 transition-all ${
-                    paymentMethod === 'cash'
-                      ? 'bg-yellow-400 border-yellow-600 text-gray-900 shadow-md'
-                      : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  💵 現金
-                </button>
-                <button
-                  onClick={() => {
-                    setPaymentMethod('card')
-                    setIsPaid(false)
-                  }}
-                  className={`py-2.5 px-3 rounded-lg font-bold text-sm border-2 transition-all ${
-                    paymentMethod === 'card'
-                      ? 'bg-blue-400 border-blue-600 text-gray-900 shadow-md'
-                      : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  💳 刷卡
-                </button>
-                <button
-                  onClick={() => {
-                    setPaymentMethod('transfer_cathay')
-                    setIsPaid(false)
-                  }}
-                  className={`py-2.5 px-3 rounded-lg font-bold text-sm border-2 transition-all ${
-                    paymentMethod === 'transfer_cathay'
-                      ? 'bg-purple-400 border-purple-600 text-gray-900 shadow-md'
-                      : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  🏦 國泰
-                </button>
-                <button
-                  onClick={() => {
-                    setPaymentMethod('transfer_fubon')
-                    setIsPaid(false)
-                  }}
-                  className={`py-2.5 px-3 rounded-lg font-bold text-sm border-2 transition-all ${
-                    paymentMethod === 'transfer_fubon'
-                      ? 'bg-red-400 border-red-600 text-gray-900 shadow-md'
-                      : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  🏦 富邦
-                </button>
-                <button
-                  onClick={() => {
-                    setPaymentMethod('transfer_esun')
-                    setIsPaid(false)
-                  }}
-                  className={`py-2.5 px-3 rounded-lg font-bold text-sm border-2 transition-all ${
-                    paymentMethod === 'transfer_esun'
-                      ? 'bg-green-400 border-green-600 text-gray-900 shadow-md'
-                      : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  🏦 玉山
-                </button>
-                <button
-                  onClick={() => {
-                    setPaymentMethod('transfer_union')
-                    setIsPaid(false)
-                  }}
-                  className={`py-2.5 px-3 rounded-lg font-bold text-sm border-2 transition-all ${
-                    paymentMethod === 'transfer_union'
-                      ? 'bg-orange-400 border-orange-600 text-gray-900 shadow-md'
-                      : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  🏦 聯邦
-                </button>
-                <button
-                  onClick={() => {
-                    setPaymentMethod('transfer_linepay')
-                    setIsPaid(false)
-                  }}
-                  className={`py-2.5 px-3 rounded-lg font-bold text-sm border-2 transition-all ${
-                    paymentMethod === 'transfer_linepay'
-                      ? 'bg-green-400 border-green-600 text-gray-900 shadow-md'
-                      : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  💚 LINE Pay
-                </button>
-                <button
-                  onClick={() => {
-                    setPaymentMethod('cod')
-                    setIsPaid(false)
-                  }}
-                  className={`py-2.5 px-3 rounded-lg font-bold text-sm border-2 transition-all ${
-                    paymentMethod === 'cod'
-                      ? 'bg-pink-400 border-pink-600 text-gray-900 shadow-md'
-                      : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  📦 貨到付款
-                </button>
-                <button
-                  onClick={() => {
-                    setPaymentMethod('pending')
-                    setIsPaid(false)
-                  }}
-                  className={`py-2.5 px-3 rounded-lg font-bold text-sm border-2 transition-all ${
-                    paymentMethod === 'pending'
-                      ? 'bg-gray-400 border-gray-600 text-gray-900 shadow-md'
-                      : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  ❓ 待確定
-                </button>
               </div>
-            </div>
 
-            {/* Discount - Button Selection */}
-            <div>
-              <label className="block font-bold mb-1.5 text-sm text-black dark:text-gray-100">折扣</label>
-              <div className="grid grid-cols-3 gap-2 mb-2">
-                <button
-                  onClick={() => {
-                    setDiscountType('none')
-                    setDiscountValue(0)
-                  }}
-                  className={`py-2 rounded-lg font-bold text-sm border-2 transition-all ${
-                    discountType === 'none'
-                      ? 'bg-yellow-400 border-yellow-600 text-gray-900 shadow-md'
-                      : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  無折扣
-                </button>
-                <button
-                  onClick={() => setDiscountType('percent')}
-                  className={`py-2 rounded-lg font-bold text-sm border-2 transition-all ${
-                    discountType === 'percent'
-                      ? 'bg-yellow-400 border-yellow-600 text-gray-900 shadow-md'
-                      : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  百分比
-                </button>
-                <button
-                  onClick={() => setDiscountType('amount')}
-                  className={`py-2 rounded-lg font-bold text-sm border-2 transition-all ${
-                    discountType === 'amount'
-                      ? 'bg-yellow-400 border-yellow-600 text-gray-900 shadow-md'
-                      : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  金額
-                </button>
-              </div>
-              {discountType !== 'none' && (
-                <input
-                  type="number"
-                  value={discountValue}
-                  onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
-                  min="0"
-                  max={discountType === 'percent' ? 100 : subtotal}
-                  step={discountType === 'percent' ? 1 : 1}
-                  className="w-full border-2 border-gray-400 dark:border-gray-600 rounded-lg px-3 py-2 text-base text-black dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-black dark:focus:border-blue-500 focus:outline-none"
-                  placeholder={discountType === 'percent' ? '折扣 %' : '折扣金額'}
-                />
-              )}
-            </div>
-
-            {/* Payment Status */}
-            <label className="flex items-center gap-2.5 cursor-pointer border-2 border-gray-400 dark:border-gray-600 rounded-lg px-3 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-700">
-              <input
-                type="checkbox"
-                checked={isPaid}
-                onChange={(e) => setIsPaid(e.target.checked)}
-                className="w-5 h-5"
-              />
-              <span className="font-bold text-base text-black dark:text-gray-100">已收款</span>
-            </label>
-
-            {/* Delivery Status */}
-            <label className="flex items-center gap-2.5 cursor-pointer border-2 border-gray-400 dark:border-gray-600 rounded-lg px-3 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-700">
-              <input
-                type="checkbox"
-                checked={isDelivered}
-                onChange={(e) => setIsDelivered(e.target.checked)}
-                className="w-5 h-5"
-              />
-              <span className="font-bold text-base text-black dark:text-gray-100">已出貨</span>
-            </label>
-          </div>
-
-          {/* Delivery Details - Only when not delivered */}
-          {!isDelivered && (
-            <div className="space-y-2 border-2 border-orange-400 dark:border-orange-600 rounded-lg p-3 bg-orange-50 dark:bg-orange-900/20">
+              {/* Discount - Button Selection */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">預計出貨日</label>
-                <input
-                  type="date"
-                  value={expectedDeliveryDate}
-                  onChange={(e) => setExpectedDeliveryDate(e.target.value)}
-                  className="w-full border-2 border-gray-400 dark:border-gray-600 rounded-lg px-2 py-1 text-sm text-black dark:text-gray-100 bg-white dark:bg-gray-700"
-                />
+                <label className="block font-bold mb-1.5 text-sm text-black dark:text-gray-100">折扣</label>
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                  <button
+                    onClick={() => {
+                      setDiscountType('none')
+                      setDiscountValue(0)
+                    }}
+                    className={`py-2 rounded-lg font-bold text-sm border-2 transition-all ${discountType === 'none'
+                      ? 'bg-yellow-400 border-yellow-600 text-gray-900 shadow-md'
+                      : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
+                      }`}
+                  >
+                    無折扣
+                  </button>
+                  <button
+                    onClick={() => setDiscountType('percent')}
+                    className={`py-2 rounded-lg font-bold text-sm border-2 transition-all ${discountType === 'percent'
+                      ? 'bg-yellow-400 border-yellow-600 text-gray-900 shadow-md'
+                      : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
+                      }`}
+                  >
+                    百分比
+                  </button>
+                  <button
+                    onClick={() => setDiscountType('amount')}
+                    className={`py-2 rounded-lg font-bold text-sm border-2 transition-all ${discountType === 'amount'
+                      ? 'bg-yellow-400 border-yellow-600 text-gray-900 shadow-md'
+                      : 'bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-600 text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
+                      }`}
+                  >
+                    金額
+                  </button>
+                </div>
+                {discountType !== 'none' && (
+                  <input
+                    type="number"
+                    value={discountValue}
+                    onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
+                    min="0"
+                    max={discountType === 'percent' ? 100 : subtotal}
+                    step={discountType === 'percent' ? 1 : 1}
+                    className="w-full border-2 border-gray-400 dark:border-gray-600 rounded-lg px-3 py-2 text-base text-black dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-black dark:focus:border-blue-500 focus:outline-none"
+                    placeholder={discountType === 'percent' ? '折扣 %' : '折扣金額'}
+                  />
+                )}
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">交貨方式</label>
-                <input
-                  type="text"
-                  value={deliveryMethod}
-                  onChange={(e) => setDeliveryMethod(e.target.value)}
-                  placeholder="例：宅配、自取、門市取貨"
-                  className="w-full border-2 border-gray-400 dark:border-gray-600 rounded-lg px-2 py-1 text-sm text-black dark:text-gray-100 bg-white dark:bg-gray-700"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">備註</label>
-                <textarea
-                  value={deliveryNote}
-                  onChange={(e) => setDeliveryNote(e.target.value)}
-                  placeholder="出貨相關備註"
-                  rows={2}
-                  className="w-full border-2 border-gray-400 dark:border-gray-600 rounded-lg px-2 py-1 text-sm text-black dark:text-gray-100 bg-white dark:bg-gray-700 resize-none"
-                />
+
+              {/* Payment Status + Delivery Status - 同一排 */}
+              <div className="flex gap-2">
+                <label className="flex-1 flex items-center gap-2 cursor-pointer rounded-lg px-3 py-2.5 bg-slate-700 hover:bg-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={isPaid}
+                    onChange={(e) => setIsPaid(e.target.checked)}
+                    className="w-4 h-4 accent-indigo-500"
+                  />
+                  <span className="text-sm text-white">已收款</span>
+                </label>
+                <label className="flex-1 flex items-center gap-2 cursor-pointer rounded-lg px-3 py-2.5 bg-slate-700 hover:bg-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={isDelivered}
+                    onChange={(e) => setIsDelivered(e.target.checked)}
+                    className="w-4 h-4 accent-indigo-500"
+                  />
+                  <span className="text-sm text-white">已出貨</span>
+                </label>
               </div>
             </div>
-          )}
+
+            {/* Delivery Details - Only when not delivered */}
+            {!isDelivered && (
+              <div className="space-y-2 border-2 border-orange-400 dark:border-orange-600 rounded-lg p-3 bg-orange-50 dark:bg-orange-900/20">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">預計出貨日</label>
+                  <input
+                    type="date"
+                    value={expectedDeliveryDate}
+                    onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+                    className="w-full border-2 border-gray-400 dark:border-gray-600 rounded-lg px-2 py-1 text-sm text-black dark:text-gray-100 bg-white dark:bg-gray-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">交貨方式</label>
+                  <input
+                    type="text"
+                    value={deliveryMethod}
+                    onChange={(e) => setDeliveryMethod(e.target.value)}
+                    placeholder="例：宅配、自取、門市取貨"
+                    className="w-full border-2 border-gray-400 dark:border-gray-600 rounded-lg px-2 py-1 text-sm text-black dark:text-gray-100 bg-white dark:bg-gray-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">備註</label>
+                  <textarea
+                    value={deliveryNote}
+                    onChange={(e) => setDeliveryNote(e.target.value)}
+                    placeholder="出貨相關備註"
+                    rows={2}
+                    className="w-full border-2 border-gray-400 dark:border-gray-600 rounded-lg px-2 py-1 text-sm text-black dark:text-gray-100 bg-white dark:bg-gray-700 resize-none"
+                  />
+                </div>
+              </div>
+            )}
 
 
 
-          {/* Checkout Button - Fixed at bottom */}
-          <div className="p-3 border-t-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800">
-            <div className="flex gap-2">
+
+
+            {/* Checkout Button - Fixed at bottom - 放大結帳按鈕 */}
+            <div className="p-3 border-t border-slate-700 bg-slate-800">
               <button
                 onClick={handleCheckout}
                 disabled={loading || cart.length === 0}
-                className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 dark:disabled:bg-gray-600 text-white font-bold text-lg py-3 rounded-lg shadow-md transition-all active:scale-95 disabled:cursor-not-allowed border-2 border-green-600 disabled:border-gray-500 dark:disabled:border-gray-600"
+                className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 text-white font-bold text-xl py-4 rounded-lg transition-all active:scale-[0.98] disabled:cursor-not-allowed"
               >
-                {loading ? '處理中...' : '結帳'}
+                {loading ? '處理中...' : '確認結帳'}
               </button>
               {cart.length > 0 && (
                 <button
                   onClick={handleSaveDraft}
                   disabled={loading}
-                  className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 dark:disabled:bg-gray-600 text-white font-bold text-lg py-3 rounded-lg shadow-md transition-all active:scale-95 disabled:cursor-not-allowed border-2 border-orange-600 disabled:border-gray-500"
+                  className="w-full mt-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-600 text-slate-300 font-medium py-2 rounded-lg transition-all text-sm"
                 >
-                  暫存
+                  暫存訂單
                 </button>
               )}
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Draft Orders Sidebar */}
-      {showDrafts && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowDrafts(false)}>
-          <div className="bg-white dark:bg-gray-800 w-[600px] max-h-[80vh] rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-orange-500 text-white px-6 py-4 rounded-t-lg flex items-center justify-between">
-              <h2 className="text-xl font-bold">暫存訂單</h2>
-              <button onClick={() => setShowDrafts(false)} className="text-2xl hover:text-gray-200">×</button>
+        {/* Draft Orders Sidebar */}
+        {showDrafts && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowDrafts(false)}>
+            <div className="bg-white dark:bg-gray-800 w-[600px] max-h-[80vh] rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="bg-orange-500 text-white px-6 py-4 rounded-t-lg flex items-center justify-between">
+                <h2 className="text-xl font-bold">暫存訂單</h2>
+                <button onClick={() => setShowDrafts(false)} className="text-2xl hover:text-gray-200">×</button>
+              </div>
+              <div className="p-4 overflow-y-auto custom-scrollbar max-h-[calc(80vh-80px)]">
+                {drafts.length === 0 ? (
+                  <div className="text-center text-gray-500 dark:text-gray-400 py-10">
+                    <div className="text-4xl mb-2">📋</div>
+                    <div>目前沒有暫存訂單</div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {drafts.map((draft) => {
+                      const draftSubtotal = draft.items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0)
+                      let draftDiscountAmount = 0
+                      if (draft.discount_type === 'percent') {
+                        draftDiscountAmount = (draftSubtotal * draft.discount_value) / 100
+                      } else if (draft.discount_type === 'amount') {
+                        draftDiscountAmount = draft.discount_value
+                      }
+                      const draftTotal = Math.max(0, draftSubtotal - draftDiscountAmount)
+
+                      return (
+                        <div key={draft.id} className="border-2 border-gray-300 dark:border-gray-600 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <div className="font-bold text-black dark:text-gray-100">
+                                {draft.customers?.customer_name || '散客'}
+                              </div>
+                              <div className="text-sm text-gray-600 dark:text-gray-400">
+                                {new Date(draft.created_at).toLocaleString('zh-TW')}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xl font-bold text-black dark:text-gray-100">{formatCurrency(draftTotal)}</div>
+                              <div className="text-sm text-gray-600 dark:text-gray-400">{draft.items.length} 項商品</div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 mt-3">
+                            <button
+                              onClick={() => handleLoadDraft(draft)}
+                              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 rounded-lg transition-all"
+                            >
+                              載入
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDraft(draft.id)}
+                              className="bg-red-500 hover:bg-red-600 text-white font-bold px-4 py-2 rounded-lg transition-all"
+                            >
+                              刪除
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="p-4 overflow-y-auto custom-scrollbar max-h-[calc(80vh-80px)]">
-              {drafts.length === 0 ? (
-                <div className="text-center text-gray-500 dark:text-gray-400 py-10">
-                  <div className="text-4xl mb-2">📋</div>
-                  <div>目前沒有暫存訂單</div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {drafts.map((draft) => {
-                    const draftSubtotal = draft.items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0)
-                    let draftDiscountAmount = 0
-                    if (draft.discount_type === 'percent') {
-                      draftDiscountAmount = (draftSubtotal * draft.discount_value) / 100
-                    } else if (draft.discount_type === 'amount') {
-                      draftDiscountAmount = draft.discount_value
-                    }
-                    const draftTotal = Math.max(0, draftSubtotal - draftDiscountAmount)
+          </div>
+        )}
 
-                    return (
-                      <div key={draft.id} className="border-2 border-gray-300 dark:border-gray-600 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
+        {/* Today's Sales Sidebar */}
+        {showTodaySales && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowTodaySales(false)}>
+            <div className="bg-white dark:bg-gray-800 w-[600px] max-h-[80vh] rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className={`text-white px-6 py-4 rounded-t-lg flex items-center justify-between ${salesMode === 'live' ? 'bg-pink-600' : 'bg-blue-500'
+                }`}>
+                <h2 className="text-xl font-bold">
+                  今日交易 - {salesMode === 'live' ? '📱 直播模式' : '🏪 店裡模式'}
+                </h2>
+                <button onClick={() => setShowTodaySales(false)} className="text-2xl hover:text-gray-200">×</button>
+              </div>
+              <div className="p-4 overflow-y-auto custom-scrollbar max-h-[calc(80vh-80px)]">
+                {todaySales.length === 0 ? (
+                  <div className="text-center text-gray-500 dark:text-gray-400 py-10">
+                    <div className="text-4xl mb-2">📊</div>
+                    <div>今天還沒有交易記錄</div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {todaySales.map((sale) => (
+                      <div key={sale.id} className="border-2 border-gray-300 dark:border-gray-600 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
                         <div className="flex items-center justify-between mb-2">
                           <div>
-                            <div className="font-bold text-black dark:text-gray-100">
-                              {draft.customers?.customer_name || '散客'}
-                            </div>
+                            <div className="font-bold text-black dark:text-gray-100">{sale.sale_no}</div>
                             <div className="text-sm text-gray-600 dark:text-gray-400">
-                              {new Date(draft.created_at).toLocaleString('zh-TW')}
+                              {sale.customers?.customer_name || '散客'}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-500">
+                              {new Date(sale.created_at).toLocaleString('zh-TW')}
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="text-xl font-bold text-black dark:text-gray-100">{formatCurrency(draftTotal)}</div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">{draft.items.length} 項商品</div>
+                            <div className="text-xl font-bold text-black dark:text-gray-100">{formatCurrency(sale.total)}</div>
+                            <div className={`text-sm ${sale.is_paid ? 'text-green-600' : 'text-red-600'}`}>
+                              {sale.is_paid ? '已收款' : '未收款'}
+                            </div>
                           </div>
                         </div>
-                        <div className="flex gap-2 mt-3">
-                          <button
-                            onClick={() => handleLoadDraft(draft)}
-                            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 rounded-lg transition-all"
-                          >
-                            載入
-                          </button>
-                          <button
-                            onClick={() => handleDeleteDraft(draft.id)}
-                            className="bg-red-500 hover:bg-red-600 text-white font-bold px-4 py-2 rounded-lg transition-all"
-                          >
-                            刪除
-                          </button>
-                        </div>
                       </div>
-                    )
-                  })}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Today's Sales Sidebar */}
-      {showTodaySales && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowTodaySales(false)}>
-          <div className="bg-white dark:bg-gray-800 w-[600px] max-h-[80vh] rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className={`text-white px-6 py-4 rounded-t-lg flex items-center justify-between ${
-              salesMode === 'live' ? 'bg-pink-600' : 'bg-blue-500'
-            }`}>
-              <h2 className="text-xl font-bold">
-                今日交易 - {salesMode === 'live' ? '📱 直播模式' : '🏪 店裡模式'}
-              </h2>
-              <button onClick={() => setShowTodaySales(false)} className="text-2xl hover:text-gray-200">×</button>
-            </div>
-            <div className="p-4 overflow-y-auto custom-scrollbar max-h-[calc(80vh-80px)]">
-              {todaySales.length === 0 ? (
-                <div className="text-center text-gray-500 dark:text-gray-400 py-10">
-                  <div className="text-4xl mb-2">📊</div>
-                  <div>今天還沒有交易記錄</div>
+        {/* Quick Add Customer Modal */}
+        {showQuickAddCustomer && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowQuickAddCustomer(false)}>
+            <div className="bg-white dark:bg-gray-800 w-[500px] rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="bg-green-500 text-white px-6 py-4 rounded-t-lg flex items-center justify-between">
+                <h2 className="text-xl font-bold">快速建立客戶</h2>
+                <button onClick={() => setShowQuickAddCustomer(false)} className="text-2xl hover:text-gray-200">×</button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block font-bold mb-2 text-black dark:text-gray-100">
+                    客戶名稱 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newCustomerName}
+                    onChange={(e) => setNewCustomerName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        phoneInputRef.current?.focus()
+                      }
+                    }}
+                    placeholder="請輸入客戶名稱"
+                    className="w-full border-2 border-gray-400 dark:border-gray-600 rounded-lg px-4 py-3 text-lg text-black dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-black dark:focus:border-blue-500 focus:outline-none"
+                    autoFocus
+                  />
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {todaySales.map((sale) => (
-                    <div key={sale.id} className="border-2 border-gray-300 dark:border-gray-600 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <div className="font-bold text-black dark:text-gray-100">{sale.sale_no}</div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            {sale.customers?.customer_name || '散客'}
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-500">
-                            {new Date(sale.created_at).toLocaleString('zh-TW')}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xl font-bold text-black dark:text-gray-100">{formatCurrency(sale.total)}</div>
-                          <div className={`text-sm ${sale.is_paid ? 'text-green-600' : 'text-red-600'}`}>
-                            {sale.is_paid ? '已收款' : '未收款'}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                <div>
+                  <label className="block font-bold mb-2 text-black dark:text-gray-100">
+                    客戶電話 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    ref={phoneInputRef}
+                    type="tel"
+                    value={newCustomerPhone}
+                    onChange={(e) => setNewCustomerPhone(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !addingCustomer) {
+                        handleQuickAddCustomer()
+                      }
+                    }}
+                    placeholder="請輸入客戶電話"
+                    className="w-full border-2 border-gray-400 dark:border-gray-600 rounded-lg px-4 py-3 text-lg text-black dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-black dark:focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={handleQuickAddCustomer}
+                    disabled={addingCustomer}
+                    className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-bold py-3 rounded-lg transition-all"
+                  >
+                    {addingCustomer ? '建立中...' : '建立客戶'}
+                  </button>
+                  <button
+                    onClick={() => setShowQuickAddCustomer(false)}
+                    className="flex-1 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-black dark:text-gray-100 font-bold py-3 rounded-lg transition-all"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quantity Input Modal */}
+        {showQuantityModal && quantityModalProduct && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={closeQuantityModal}>
+            <div className="bg-white dark:bg-gray-800 w-[400px] rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="bg-blue-600 text-white px-6 py-4 rounded-t-lg flex items-center justify-between">
+                <h2 className="text-xl font-bold">輸入數量</h2>
+                <button onClick={closeQuantityModal} className="text-2xl hover:text-gray-200">×</button>
+              </div>
+              <form onSubmit={handleQuantitySubmit} className="p-6 space-y-4">
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                  <div className="font-bold text-lg text-center text-gray-900 dark:text-gray-100 mb-2">
+                    {quantityModalProduct.name}
+                  </div>
+                  <div className="text-center text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    {formatCurrency(quantityModalProduct.price)}
+                  </div>
+                  <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-2">
+                    庫存: {quantityModalProduct.stock}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-2 text-black dark:text-gray-100">
+                    數量 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    ref={quantityInputRef}
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={quantityInput}
+                    onChange={(e) => setQuantityInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleQuantitySubmit(e)
+                      }
+                    }}
+                    className="w-full text-center text-3xl font-bold border-2 border-gray-400 dark:border-gray-600 rounded-lg px-4 py-4 text-black dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none"
+                    placeholder="請輸入數量"
+                  />
+                </div>
+
+                {/* Quick number buttons */}
+                <div className="grid grid-cols-4 gap-2">
+                  {[1, 5, 10, 20, 50, 100].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setQuantityInput(String(num))}
+                      className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-black dark:text-gray-100 font-bold py-2 rounded-lg transition-all"
+                    >
+                      {num}
+                    </button>
                   ))}
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Quick Add Customer Modal */}
-      {showQuickAddCustomer && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={() => setShowQuickAddCustomer(false)}>
-          <div className="bg-white dark:bg-gray-800 w-[500px] rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-green-500 text-white px-6 py-4 rounded-t-lg flex items-center justify-between">
-              <h2 className="text-xl font-bold">快速建立客戶</h2>
-              <button onClick={() => setShowQuickAddCustomer(false)} className="text-2xl hover:text-gray-200">×</button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block font-bold mb-2 text-black dark:text-gray-100">
-                  客戶名稱 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newCustomerName}
-                  onChange={(e) => setNewCustomerName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      phoneInputRef.current?.focus()
-                    }
-                  }}
-                  placeholder="請輸入客戶名稱"
-                  className="w-full border-2 border-gray-400 dark:border-gray-600 rounded-lg px-4 py-3 text-lg text-black dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-black dark:focus:border-blue-500 focus:outline-none"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="block font-bold mb-2 text-black dark:text-gray-100">
-                  客戶電話 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  ref={phoneInputRef}
-                  type="tel"
-                  value={newCustomerPhone}
-                  onChange={(e) => setNewCustomerPhone(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !addingCustomer) {
-                      handleQuickAddCustomer()
-                    }
-                  }}
-                  placeholder="請輸入客戶電話"
-                  className="w-full border-2 border-gray-400 dark:border-gray-600 rounded-lg px-4 py-3 text-lg text-black dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-black dark:focus:border-blue-500 focus:outline-none"
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={handleQuickAddCustomer}
-                  disabled={addingCustomer}
-                  className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white font-bold py-3 rounded-lg transition-all"
-                >
-                  {addingCustomer ? '建立中...' : '建立客戶'}
-                </button>
-                <button
-                  onClick={() => setShowQuickAddCustomer(false)}
-                  className="flex-1 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-black dark:text-gray-100 font-bold py-3 rounded-lg transition-all"
-                >
-                  取消
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quantity Input Modal */}
-      {showQuantityModal && quantityModalProduct && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" onClick={closeQuantityModal}>
-          <div className="bg-white dark:bg-gray-800 w-[400px] rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-blue-600 text-white px-6 py-4 rounded-t-lg flex items-center justify-between">
-              <h2 className="text-xl font-bold">輸入數量</h2>
-              <button onClick={closeQuantityModal} className="text-2xl hover:text-gray-200">×</button>
-            </div>
-            <form onSubmit={handleQuantitySubmit} className="p-6 space-y-4">
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                <div className="font-bold text-lg text-center text-gray-900 dark:text-gray-100 mb-2">
-                  {quantityModalProduct.name}
-                </div>
-                <div className="text-center text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  {formatCurrency(quantityModalProduct.price)}
-                </div>
-                <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-2">
-                  庫存: {quantityModalProduct.stock}
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold mb-2 text-black dark:text-gray-100">
-                  數量 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  ref={quantityInputRef}
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={quantityInput}
-                  onChange={(e) => setQuantityInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      handleQuantitySubmit(e)
-                    }
-                  }}
-                  className="w-full text-center text-3xl font-bold border-2 border-gray-400 dark:border-gray-600 rounded-lg px-4 py-4 text-black dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-blue-500 dark:focus:border-blue-400 focus:outline-none"
-                  placeholder="請輸入數量"
-                />
-              </div>
-
-              {/* Quick number buttons */}
-              <div className="grid grid-cols-4 gap-2">
-                {[1, 5, 10, 20, 50, 100].map((num) => (
+                <div className="flex gap-3">
                   <button
-                    key={num}
-                    type="button"
-                    onClick={() => setQuantityInput(String(num))}
-                    className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-black dark:text-gray-100 font-bold py-2 rounded-lg transition-all"
+                    type="submit"
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-all text-lg"
                   >
-                    {num}
+                    確認加入
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={closeQuantityModal}
+                    className="flex-1 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-black dark:text-gray-100 font-bold py-3 rounded-lg transition-all"
+                  >
+                    取消
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Business Day Closing Modal (日結對話框) */}
+        {showClosingModal && closingStats && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setShowClosingModal(false)}>
+            <div className="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-4 rounded-t-lg">
+                <h2 className="text-2xl font-bold">營業日結算</h2>
+                <p className="text-sm opacity-90 mt-1">
+                  結算時間：{new Date(lastClosingTime).toLocaleString('zh-TW', { timeZone: 'UTC' })} ~ 現在
+                </p>
               </div>
 
-              <div className="flex gap-3">
+              <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                {/* 統計摘要 */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                    <div className="text-sm font-medium text-blue-800 dark:text-blue-400 mb-1">
+                      總銷售筆數
+                    </div>
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-300">
+                      {closingStats.sales_count} 筆
+                    </div>
+                  </div>
+                  <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+                    <div className="text-sm font-medium text-green-800 dark:text-green-400 mb-1">
+                      總營業額
+                    </div>
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-300">
+                      {formatCurrency(closingStats.total_sales)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 已收款 vs 未收款 */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-4 border-2 border-emerald-200 dark:border-emerald-700">
+                    <div className="text-sm font-medium text-emerald-800 dark:text-emerald-400 mb-1">
+                      ✅ 已收款
+                    </div>
+                    <div className="text-xl font-bold text-emerald-600 dark:text-emerald-300">
+                      {formatCurrency(closingStats.paid_sales || 0)}
+                    </div>
+                    <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                      {closingStats.paid_count || 0} 筆
+                    </div>
+                  </div>
+                  <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4 border-2 border-orange-200 dark:border-orange-700">
+                    <div className="text-sm font-medium text-orange-800 dark:text-orange-400 mb-1">
+                      ⏳ 未收款
+                    </div>
+                    <div className="text-xl font-bold text-orange-600 dark:text-orange-300">
+                      {formatCurrency(closingStats.unpaid_sales || 0)}
+                    </div>
+                    <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                      {closingStats.unpaid_count || 0} 筆
+                    </div>
+                  </div>
+                </div>
+
+                {/* 已收款明細 */}
+                <div className="border-t dark:border-gray-700 pt-4">
+                  <h3 className="font-semibold text-lg mb-3 text-gray-900 dark:text-gray-100">✅ 已收款明細</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 rounded px-4 py-2 border border-emerald-200 dark:border-emerald-700">
+                      <span className="text-emerald-700 dark:text-emerald-300">現金</span>
+                      <span className="font-semibold text-emerald-900 dark:text-emerald-100">
+                        {formatCurrency(closingStats.paid_cash || 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 rounded px-4 py-2 border border-emerald-200 dark:border-emerald-700">
+                      <span className="text-emerald-700 dark:text-emerald-300">刷卡</span>
+                      <span className="font-semibold text-emerald-900 dark:text-emerald-100">
+                        {formatCurrency(closingStats.paid_card || 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 rounded px-4 py-2 border border-emerald-200 dark:border-emerald-700">
+                      <span className="text-emerald-700 dark:text-emerald-300">轉帳</span>
+                      <span className="font-semibold text-emerald-900 dark:text-emerald-100">
+                        {formatCurrency(closingStats.paid_transfer || 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 rounded px-4 py-2 border border-emerald-200 dark:border-emerald-700">
+                      <span className="text-emerald-700 dark:text-emerald-300">貨到付款</span>
+                      <span className="font-semibold text-emerald-900 dark:text-emerald-100">
+                        {formatCurrency(closingStats.paid_cod || 0)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 備註 */}
+                <div className="border-t dark:border-gray-700 pt-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    備註（選填）
+                  </label>
+                  <textarea
+                    value={closingNote}
+                    onChange={(e) => setClosingNote(e.target.value)}
+                    placeholder="例如：早班、晚班、值班人員等..."
+                    className="w-full border dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-blue-500 focus:outline-none"
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              <div className="border-t dark:border-gray-700 px-6 py-4 flex gap-3">
                 <button
-                  type="submit"
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-all text-lg"
+                  onClick={handleClosing}
+                  disabled={closingInProgress}
+                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-3 rounded-lg transition-all"
                 >
-                  確認加入
+                  {closingInProgress ? '結算中...' : '確認日結'}
                 </button>
                 <button
-                  type="button"
-                  onClick={closeQuantityModal}
-                  className="flex-1 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-black dark:text-gray-100 font-bold py-3 rounded-lg transition-all"
+                  onClick={() => setShowClosingModal(false)}
+                  disabled={closingInProgress}
+                  className="flex-1 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 disabled:bg-gray-200 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-lg transition-all"
                 >
                   取消
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Business Day Closing Modal (日結對話框) */}
-      {showClosingModal && closingStats && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onClick={() => setShowClosingModal(false)}>
-          <div className="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-4 rounded-t-lg">
-              <h2 className="text-2xl font-bold">營業日結算</h2>
-              <p className="text-sm opacity-90 mt-1">
-                結算時間：{new Date(lastClosingTime).toLocaleString('zh-TW', { timeZone: 'UTC' })} ~ 現在
-              </p>
-            </div>
-
-            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
-              {/* 統計摘要 */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                  <div className="text-sm font-medium text-blue-800 dark:text-blue-400 mb-1">
-                    總銷售筆數
-                  </div>
-                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-300">
-                    {closingStats.sales_count} 筆
-                  </div>
-                </div>
-                <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-                  <div className="text-sm font-medium text-green-800 dark:text-green-400 mb-1">
-                    總營業額
-                  </div>
-                  <div className="text-2xl font-bold text-green-600 dark:text-green-300">
-                    {formatCurrency(closingStats.total_sales)}
-                  </div>
-                </div>
-              </div>
-
-              {/* 已收款 vs 未收款 */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-4 border-2 border-emerald-200 dark:border-emerald-700">
-                  <div className="text-sm font-medium text-emerald-800 dark:text-emerald-400 mb-1">
-                    ✅ 已收款
-                  </div>
-                  <div className="text-xl font-bold text-emerald-600 dark:text-emerald-300">
-                    {formatCurrency(closingStats.paid_sales || 0)}
-                  </div>
-                  <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
-                    {closingStats.paid_count || 0} 筆
-                  </div>
-                </div>
-                <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4 border-2 border-orange-200 dark:border-orange-700">
-                  <div className="text-sm font-medium text-orange-800 dark:text-orange-400 mb-1">
-                    ⏳ 未收款
-                  </div>
-                  <div className="text-xl font-bold text-orange-600 dark:text-orange-300">
-                    {formatCurrency(closingStats.unpaid_sales || 0)}
-                  </div>
-                  <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-                    {closingStats.unpaid_count || 0} 筆
-                  </div>
-                </div>
-              </div>
-
-              {/* 已收款明細 */}
-              <div className="border-t dark:border-gray-700 pt-4">
-                <h3 className="font-semibold text-lg mb-3 text-gray-900 dark:text-gray-100">✅ 已收款明細</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 rounded px-4 py-2 border border-emerald-200 dark:border-emerald-700">
-                    <span className="text-emerald-700 dark:text-emerald-300">現金</span>
-                    <span className="font-semibold text-emerald-900 dark:text-emerald-100">
-                      {formatCurrency(closingStats.paid_cash || 0)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 rounded px-4 py-2 border border-emerald-200 dark:border-emerald-700">
-                    <span className="text-emerald-700 dark:text-emerald-300">刷卡</span>
-                    <span className="font-semibold text-emerald-900 dark:text-emerald-100">
-                      {formatCurrency(closingStats.paid_card || 0)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 rounded px-4 py-2 border border-emerald-200 dark:border-emerald-700">
-                    <span className="text-emerald-700 dark:text-emerald-300">轉帳</span>
-                    <span className="font-semibold text-emerald-900 dark:text-emerald-100">
-                      {formatCurrency(closingStats.paid_transfer || 0)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 rounded px-4 py-2 border border-emerald-200 dark:border-emerald-700">
-                    <span className="text-emerald-700 dark:text-emerald-300">貨到付款</span>
-                    <span className="font-semibold text-emerald-900 dark:text-emerald-100">
-                      {formatCurrency(closingStats.paid_cod || 0)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 備註 */}
-              <div className="border-t dark:border-gray-700 pt-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  備註（選填）
-                </label>
-                <textarea
-                  value={closingNote}
-                  onChange={(e) => setClosingNote(e.target.value)}
-                  placeholder="例如：早班、晚班、值班人員等..."
-                  className="w-full border dark:border-gray-600 rounded-lg px-4 py-2 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700 focus:border-blue-500 focus:outline-none"
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <div className="border-t dark:border-gray-700 px-6 py-4 flex gap-3">
-              <button
-                onClick={handleClosing}
-                disabled={closingInProgress}
-                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-3 rounded-lg transition-all"
-              >
-                {closingInProgress ? '結算中...' : '確認日結'}
-              </button>
-              <button
-                onClick={() => setShowClosingModal(false)}
-                disabled={closingInProgress}
-                className="flex-1 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 disabled:bg-gray-200 text-gray-900 dark:text-gray-100 font-bold py-3 rounded-lg transition-all"
-              >
-                取消
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
       </div>
     </>
   )
